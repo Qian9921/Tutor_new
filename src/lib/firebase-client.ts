@@ -1,5 +1,12 @@
 import * as firebaseClient from 'firebase/app';
-import { getFirestore as getClientFirestore } from 'firebase/firestore';
+import { getFirestore as getClientFirestore, Firestore } from 'firebase/firestore';
+
+// 定义兼容旧版本Firebase API的接口
+interface FirestoreCompat {
+  collection: (collectionPath: string) => {
+    doc: (documentPath: string) => unknown;
+  };
+}
 
 // 添加时间戳的日志函数
 function logWithTime(message: string, data?: unknown) {
@@ -50,7 +57,7 @@ try {
 }
 
 // 获取Firestore实例
-let clientDb;
+let clientDb: Firestore;
 try {
   logWithTime('获取Firestore客户端实例...');
   clientDb = getClientFirestore(clientApp);
@@ -85,7 +92,7 @@ async function testClientFirestore() {
     logWithTime(`尝试获取测试文档 ${testCollection}/${testDocId}`);
     
     // 不需要真正进行操作，仅测试能否获取引用
-    const ref = clientDb.collection(testCollection).doc(testDocId);
+    const ref = (clientDb as unknown as FirestoreCompat).collection(testCollection).doc(testDocId);
     
     if (ref) {
       logWithTime('Firestore客户端连接测试成功');
