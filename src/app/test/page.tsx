@@ -3,31 +3,16 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
-// 定义服务测试结果接口
-interface ServiceTestResult {
-  success: boolean;
-  message: string;
-  error?: string;
-  data?: Record<string, unknown>;
-}
-
-// 定义错误类型
-interface ServiceError {
-  message: string;
-  code?: string;
-  details?: Record<string, unknown>;
-}
-
 // 定义测试结果接口
 interface TestResults {
-  firebase: ServiceTestResult | null;
-  firebaseError: ServiceError | null;
-  github: ServiceTestResult | null;
-  githubError: ServiceError | null;
-  llamaindex: ServiceTestResult | null;
-  llamaindexError: ServiceError | null;
-  doubao: ServiceTestResult | null;
-  doubaoError: ServiceError | null;
+  firebase: any;
+  firebaseError: any;
+  github: any;
+  githubError: any;
+  llamaindex: any;
+  llamaindexError: any;
+  doubao: any;
+  doubaoError: any;
   timestamp?: string;
   overall?: {
     success: boolean;
@@ -418,19 +403,19 @@ export default function TestPage() {
               <ul className="list-disc pl-5 space-y-2">
                 <li className={testResults.firebase ? 'text-green-600' : 'text-red-600'}>
                   Firebase连接: {testResults.firebase ? '成功' : '失败'}
-                  {testResults.firebaseError && <p className="text-red-500 text-sm">{testResults.firebaseError.message}</p>}
+                  {testResults.firebaseError && <p className="text-red-500 text-sm">{testResults.firebaseError}</p>}
                 </li>
                 <li className={testResults.github ? 'text-green-600' : 'text-red-600'}>
                   GitHub API: {testResults.github ? '成功' : '失败'}
-                  {testResults.githubError && <p className="text-red-500 text-sm">{testResults.githubError.message}</p>}
+                  {testResults.githubError && <p className="text-red-500 text-sm">{testResults.githubError}</p>}
                 </li>
                 <li className={testResults.llamaindex ? 'text-green-600' : 'text-red-600'}>
                   LlamaIndex: {testResults.llamaindex ? '成功' : '失败'}
-                  {testResults.llamaindexError && <p className="text-red-500 text-sm">{testResults.llamaindexError.message}</p>}
+                  {testResults.llamaindexError && <p className="text-red-500 text-sm">{testResults.llamaindexError}</p>}
                 </li>
                 <li className={testResults.doubao ? 'text-green-600' : 'text-red-600'}>
                   Doubao API: {testResults.doubao ? '成功' : '失败'}
-                  {testResults.doubaoError && <p className="text-red-500 text-sm">{testResults.doubaoError.message}</p>}
+                  {testResults.doubaoError && <p className="text-red-500 text-sm">{testResults.doubaoError}</p>}
                 </li>
               </ul>
             </div>

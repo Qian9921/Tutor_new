@@ -23,7 +23,7 @@ function logError(message: string, error: unknown) {
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
-): Promise<NextResponse> {
+) {
   const id = params.id;
   logWithTime(`GET /api/detail/${id} - 获取评估详情`);
   

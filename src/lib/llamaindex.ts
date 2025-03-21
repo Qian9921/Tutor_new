@@ -65,7 +65,7 @@ export async function processGitHubRepository(
       
       // 生成与当前任务相关的文件列表
       const relevantFiles = getRelevantFilesForTask(
-        cacheData.files || [],
+        cacheData?.files || [],
         currentTask,
         subtasks,
         projectDetail
