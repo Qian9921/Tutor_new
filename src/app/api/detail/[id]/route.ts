@@ -22,9 +22,9 @@ function logError(message: string, error: unknown) {
  */
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const id = context.params.id;
+  const id = (await context.params).id;
   logWithTime(`GET /api/detail/${id} - 获取评估详情`);
   
   try {
