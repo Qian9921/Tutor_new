@@ -63,16 +63,22 @@ export async function processGitHubRepository(
       logWithTime('找到仓库缓存，使用缓存数据');
       const cacheData = cacheDoc.data();
       
+      // 确保files是一个数组
+      const files = Array.isArray(cacheData?.files) ? cacheData.files : [];
+      
       // 生成与当前任务相关的文件列表
       const relevantFiles = getRelevantFilesForTask(
-        cacheData?.files || [],
+        files,
         currentTask,
         subtasks,
         projectDetail
       );
       
+      // 确保summary是一个字符串
+      const summary = typeof cacheData?.summary === 'string' ? cacheData.summary : '';
+      
       return {
-        repoSummary: cacheData.summary || createMockRepoSummary(owner, repo),
+        repoSummary: summary || createMockRepoSummary(owner, repo),
         relevantFiles
       };
     }

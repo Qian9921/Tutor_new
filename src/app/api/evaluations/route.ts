@@ -54,15 +54,48 @@ export async function GET(request: NextRequest) {
       const evaluations = result.docs.map(doc => {
         const data = doc.data();
         return {
-          id: doc.id,
-          ...data
+          ...data,
+          id: doc.id
         };
       });
       
       // 按创建时间排序，最新的在前面
       evaluations.sort((a, b) => {
-        const dateA = new Date(a.createdAt).getTime();
-        const dateB = new Date(b.createdAt).getTime();
+        // 安全地获取时间戳，处理各种可能的日期格式
+        const getTimeStamp = (item: Record<string, unknown>): number => {
+          // 尝试读取created_at或createdAt
+          const dateValue = item.created_at || item.createdAt;
+          
+          // 如果值为空，返回最小的时间戳
+          if (dateValue === undefined || dateValue === null) {
+            return 0;
+          }
+          
+          try {
+            // 如果是Date对象
+            if (dateValue instanceof Date) {
+              return dateValue.getTime();
+            }
+            
+            // 如果是字符串或其他类型，尝试创建Date对象
+            const date = new Date(dateValue as string);
+            
+            // 检查是否为有效日期
+            if (isNaN(date.getTime())) {
+              return 0; // 无效日期返回默认时间戳
+            }
+            
+            return date.getTime();
+          } catch (error) {
+            // 转换失败时返回默认时间戳
+            logError(`日期转换错误: ${String(dateValue)}`, error);
+            return 0;
+          }
+        };
+        
+        const dateA = getTimeStamp(a);
+        const dateB = getTimeStamp(b);
+        
         return dateB - dateA;
       });
       
