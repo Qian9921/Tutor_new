@@ -3,7 +3,7 @@ import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 import { processGitHubRepository } from '@/lib/llamaindex';
 import { evaluateCode, CodeEvaluationResult } from '@/lib/doubao';
 import { v4 as uuidv4 } from 'uuid';
-
+export const runtime = 'edge';
 // 添加日志记录函数
 function logWithTime(...args: unknown[]) {
   const timestamp = new Date().toISOString();

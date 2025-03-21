@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-
+export const runtime = 'edge';
 const openai = new OpenAI(
     {
         // 若没有配置环境变量，请用百炼API Key将下行替换为：apiKey: "sk-xxx",

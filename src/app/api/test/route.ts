@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, testDatabaseConnection, waitForDatabaseInitialization } from '@/lib/database';
 import { parseGitHubUrl } from '@/lib/github';
-
+export const runtime = 'edge';
 // 定义测试结果的基本接口
 interface TestResult {
   success: boolean;

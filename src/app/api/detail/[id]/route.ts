@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
-
+export const runtime = 'edge';
 // 添加时间戳的日志函数
 function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
