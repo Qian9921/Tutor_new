@@ -1,0 +1,5 @@
+{
+    "name": "tutor",
+    "compatibility_date": "2025-03-21",
+    "main": "src/app/page.tsx"
+  }
