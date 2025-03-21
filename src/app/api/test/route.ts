@@ -2,6 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, testDatabaseConnection, waitForDatabaseInitialization } from '@/lib/database';
 import { parseGitHubUrl } from '@/lib/github';
 
+// 定义测试结果的基本接口
+interface TestResult {
+  success: boolean;
+  message: string;
+  error?: string;
+}
+
+// 定义GitHub测试结果的特定接口
+interface GithubTestResult extends TestResult {
+  parsed?: { owner: string; repo: string };
+}
+
+// 定义所有测试结果的接口
+interface TestResults {
+  database?: TestResult;
+  github?: GithubTestResult;
+  doubao?: TestResult;
+  llamaindex?: TestResult;
+  [key: string]: TestResult | undefined;
+}
+
+// 定义结果对象的完整接口
+interface ApiResults {
+  timestamp: string;
+  tests: TestResults;
+  overall?: {
+    success: boolean;
+    message: string;
+  };
+}
+
 // 添加时间戳的日志函数
 function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
@@ -32,7 +63,7 @@ export async function GET(request: NextRequest) {
     logError('数据库初始化失败', error);
   }
   
-  const results: Record<string, unknown> = {
+  const results: ApiResults = {
     timestamp: new Date().toISOString(),
     tests: {}
   };
