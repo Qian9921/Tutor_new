@@ -5,14 +5,14 @@ import Link from 'next/link';
 
 // 定义测试结果接口
 interface TestResults {
-  firebase: any;
-  firebaseError: any;
-  github: any;
-  githubError: any;
-  llamaindex: any;
-  llamaindexError: any;
-  doubao: any;
-  doubaoError: any;
+  firebase: boolean | Record<string, unknown>;
+  firebaseError: string | null | undefined;
+  github: boolean | Record<string, unknown>;
+  githubError: string | null | undefined;
+  llamaindex: boolean | Record<string, unknown>;
+  llamaindexError: string | null | undefined;
+  doubao: boolean | Record<string, unknown>;
+  doubaoError: string | null | undefined;
   timestamp?: string;
   overall?: {
     success: boolean;
