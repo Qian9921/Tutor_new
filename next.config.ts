@@ -1,7 +1,4 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
+// next.config.js
+export default {
+  runtime: 'edge', // 全局设置
 };
-
-export default nextConfig;
