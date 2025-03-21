@@ -46,11 +46,6 @@ export interface CodeEvaluationParams {
 
 // API响应类型
 export interface CodeEvaluationResult {
-  overall: number; // 总体得分
-  quality: number; // 代码质量得分
-  functionality: number; // 功能实现得分
-  maintainability: number; // 可维护性得分
-  security: number; // 安全性得分
   detailedReport: string; // 详细评价报告
   rawContent?: string; // 原始响应内容
 }
@@ -134,7 +129,7 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 以严格JSON格式返回：
 {
   "assessment": 0.75, // 评分需体现加权计算结果
-  "reasoning": "符号化评估说明（最少4个关键点）", 
+  "reasoning": "符号化评估说明（最少6个关键点）", 
   "improvements": ["可执行的prompt指令"]
 }`
           },
@@ -172,22 +167,12 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
       if (isJson) {
         // 处理JSON格式响应
         result = {
-          overall: responseData.overall || 0,
-          quality: responseData.quality || 0,
-          functionality: responseData.functionality || 0,
-          maintainability: responseData.maintainability || 0,
-          security: responseData.security || 0,
           detailedReport: responseData.detailed_report || '',
           rawContent: responseContent
         };
       } else {
         // 处理文本格式响应
         result = {
-          overall: 5, // 默认得分
-          quality: 5,
-          functionality: 5,
-          maintainability: 5,
-          security: 5,
           detailedReport: responseContent,
           rawContent: responseContent // 使用原始内容作为报告
         };
@@ -238,11 +223,6 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 function getMockEvaluationResult(): CodeEvaluationResult {
   logWithTime('返回模拟评估结果');
   return {
-    overall: 8.5,
-    quality: 8.2,
-    functionality: 8.7,
-    maintainability: 8.5,
-    security: 8.6,
     detailedReport: `
       请按以下要求分析：
 1. 完成度评分 (0-1的小数，两位精度)
