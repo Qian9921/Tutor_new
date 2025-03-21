@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 
-type Params = { id: string };
-
 // 添加时间戳的日志函数
 function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
@@ -24,9 +22,9 @@ function logError(message: string, error: unknown) {
  */
 export async function GET(
   request: NextRequest,
-  context: { params: Params }
-) {
-  const id = context.params.id;
+  { params }: { params: { id: string } }
+): Promise<NextResponse> {
+  const id = params.id;
   logWithTime(`GET /api/detail/${id} - 获取评估详情`);
   
   try {
