@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, COLLECTIONS, Timestamp, waitForDatabaseInitialization } from '@/lib/database';
+import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 import { processGitHubRepository } from '@/lib/llamaindex';
 import { evaluateCode, CodeEvaluationResult } from '@/lib/doubao';
 import { v4 as uuidv4 } from 'uuid';
 
 // 添加日志记录函数
-function logWithTime(...args: any[]) {
+function logWithTime(...args: unknown[]) {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] [EVALUATE-API]`, ...args);
 }
@@ -19,6 +19,7 @@ function logError(message: string, error: Error | unknown | null) {
 }
 
 // 验证请求API密钥的中间件
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function validateApiKey(request: NextRequest): boolean {
   // 生产环境中应该实现真正的API密钥验证
   // 这里简单实现，实际项目中应该更严格
@@ -268,11 +269,8 @@ async function processEvaluation(
       
       logWithTime(`[ID: ${evaluationId}] 代码评估完成`);
       logWithTime(`[ID: ${evaluationId}] 评估结果:`, { 
-        overall: evaluationResult.overall,
-        quality: evaluationResult.quality,
-        functionality: evaluationResult.functionality,
-        maintainability: evaluationResult.maintainability,
-        security: evaluationResult.security
+        detailedReport: evaluationResult.detailedReport,
+        rawContent: evaluationResult.rawContent
       });
     } catch (evaluateError) {
       logError(`[ID: ${evaluationId}] 评估代码失败`, evaluateError);

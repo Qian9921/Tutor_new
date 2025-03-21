@@ -82,10 +82,8 @@ export default function NewEvaluationPage() {
       errors.currentTask = '当前任务是必填的';
     }
     
-    let hasEmptySubtask = false;
     formData.subtasks.forEach((task, index) => {
       if (!task.trim()) {
-        hasEmptySubtask = true;
         errors[`subtask-${index}`] = '子任务不能为空';
       }
     });

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { COLLECTIONS } from '@/lib/database';
 
 type Evaluation = {
   id: string;
@@ -11,7 +10,7 @@ type Evaluation = {
   currentTask: string;
   createdAt: Date;
   updatedAt: Date;
-  result?: any;
+  result?: unknown;
 };
 
 export default function HistoryPage() {

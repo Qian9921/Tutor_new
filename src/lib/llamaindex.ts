@@ -1,15 +1,17 @@
 // 创建一个简单的Document接口替代@llamaindex/core的导入
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface Document {
   text: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 import { getRepositoryFiles, parseGitHubUrl } from './github';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { v4 as uuidv4 } from 'uuid';
 
 // 添加时间戳的日志函数
-function logWithTime(message: string, data?: any) {
+function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
   if (data) {
     console.log(`[${timestamp}] [LLAMAINDEX] ${message}`, data);
@@ -18,10 +20,10 @@ function logWithTime(message: string, data?: any) {
   }
 }
 
-function logError(message: string, error: any) {
+function logError(message: string, error: unknown) {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [LLAMAINDEX ERROR] ${message}`, error);
-  console.error(`Stack: ${error.stack || 'No stack trace'}`);
+  console.error(`Stack: ${(error as Error).stack || 'No stack trace'}`);
 }
 
 // 模拟LlamaIndex处理结果
@@ -289,7 +291,9 @@ function createMockRepoSummary(owner: string, repo: string): string {
 function getRelevantFilesForTask(
   files: Array<{path: string; content: string}>,
   currentTask: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   subtasks: string[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   projectDetail: string
 ): Array<{path: string; content: string; relevance: number}> {
   logWithTime('根据任务筛选相关文件');

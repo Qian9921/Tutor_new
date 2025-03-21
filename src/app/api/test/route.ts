@@ -1,10 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, testDatabaseConnection, waitForDatabaseInitialization } from '@/lib/database';
 import { parseGitHubUrl } from '@/lib/github';
-import axios from 'axios';
+
+// 定义测试结果接口
+interface TestResult {
+  success: boolean;
+  message: string;
+  error?: string;
+  parsed?: { owner: string; repo: string };
+}
+
+// 定义所有测试类型的接口
+interface Tests {
+  database?: TestResult;
+  github?: TestResult;
+  doubao?: TestResult;
+  llamaindex?: TestResult;
+}
+
+// 定义API响应接口
+interface APIResponse {
+  timestamp: string;
+  tests: Tests;
+  overall?: {
+    success: boolean;
+    message: string;
+  };
+}
 
 // 添加时间戳的日志函数
-function logWithTime(message: string, data?: any) {
+function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
   if (data) {
     console.log(`[${timestamp}] [TEST API] ${message}`, data);
@@ -13,15 +38,16 @@ function logWithTime(message: string, data?: any) {
   }
 }
 
-function logError(message: string, error: any) {
+function logError(message: string, error: unknown) {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [TEST API ERROR] ${message}`, error);
-  console.error(`Stack: ${error.stack || 'No stack trace'}`);
+  console.error(`Stack: ${(error as Error).stack || 'No stack trace'}`);
 }
 
 /**
  * 测试API，用于验证系统各组件连通性
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(request: NextRequest) {
   logWithTime('收到GET请求 - 开始系统连通性测试');
   
@@ -32,7 +58,7 @@ export async function GET(request: NextRequest) {
     logError('数据库初始化失败', error);
   }
   
-  const results: Record<string, any> = {
+  const results: APIResponse = {
     timestamp: new Date().toISOString(),
     tests: {}
   };
@@ -56,7 +82,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const errorMsg = '数据库连接失败: ' + (error as Error).message;
     logError('数据库连接测试失败', error);
-    results.tests.database = {
+    (results.tests as Record<string, unknown>).database = {
       success: false,
       message: errorMsg,
       error: (error as Error).stack
@@ -129,7 +155,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 总体状态
-  const allTests = Object.values(results.tests) as any[];
+  const allTests = Object.values(results.tests as Record<string, unknown>) as Array<{success: boolean}>;
   const allSuccess = allTests.every(test => test.success);
   
   results.overall = {

@@ -1,11 +1,13 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { HttpProxyAgent } from 'http-proxy-agent';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import { COLLECTIONS } from './firebase-client';
 
 // 添加时间戳的日志函数
-function logWithTime(message: string, data?: any) {
+function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
   if (data) {
     console.log(`[${timestamp}] [FIREBASE ADMIN] ${message}`, data);
@@ -14,10 +16,10 @@ function logWithTime(message: string, data?: any) {
   }
 }
 
-function logError(message: string, error: any) {
+function logError(message: string, error: unknown) {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [FIREBASE ADMIN ERROR] ${message}`, error);
-  console.error(`Stack: ${error.stack || 'No stack trace'}`);
+  console.error(`Stack: ${(error as Error).stack || 'No stack trace'}`);
 }
 
 // 检查必要的环境变量

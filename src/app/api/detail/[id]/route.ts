@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 
+type Params = { id: string };
+
 // 添加时间戳的日志函数
-function logWithTime(message: string, data?: any) {
+function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
   if (data) {
     console.log(`[${timestamp}] [DETAIL API] ${message}`, data);
@@ -11,10 +13,10 @@ function logWithTime(message: string, data?: any) {
   }
 }
 
-function logError(message: string, error: any) {
+function logError(message: string, error: unknown) {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [DETAIL API ERROR] ${message}`, error);
-  console.error(`Stack: ${error.stack || 'No stack trace'}`);
+  console.error(`Stack: ${(error as Error).stack || 'No stack trace'}`);
 }
 
 /**
@@ -22,7 +24,7 @@ function logError(message: string, error: any) {
  */
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Params }
 ) {
   const id = context.params.id;
   logWithTime(`GET /api/detail/${id} - 获取评估详情`);

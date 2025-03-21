@@ -1,7 +1,7 @@
 import { OpenAI } from 'openai';
 
 // 添加时间戳的日志函数
-function logWithTime(message: string, data?: any) {
+function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
   if (data) {
     console.log(`[${timestamp}] [QWEN API] ${message}`, data);
@@ -10,10 +10,10 @@ function logWithTime(message: string, data?: any) {
   }
 }
 
-function logError(message: string, error: any) {
+function logError(message: string, error: unknown) {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [QWEN API ERROR] ${message}`, error);
-  console.error(`Stack: ${error.stack || 'No stack trace'}`);
+  console.error(`Stack: ${(error as Error).stack || 'No stack trace'}`);
 }
 
 // 尝试不同的API基础URL
@@ -147,7 +147,7 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
       const responseContent = response.choices[0]?.message?.content || '';
       logWithTime('原始响应内容', responseContent);
 
-      let responseData: any = {};
+      let responseData: Record<string, unknown> = {};
       let isJson = true;
 
       try {
@@ -155,7 +155,10 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
         if (responseContent.trim()) {
           responseData = JSON.parse(responseContent);
         }
-      } catch (parseError) {
+      } catch (
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        parseError
+      ) {
         // 解析失败，使用原始文本
         isJson = false;
         logWithTime('响应不是JSON格式，将作为文本处理');
@@ -167,7 +170,11 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
       if (isJson) {
         // 处理JSON格式响应
         result = {
-          detailedReport: responseData.detailed_report || '',
+          detailedReport: typeof responseData.detailed_report === 'string' 
+            ? responseData.detailed_report 
+            : responseData.detailed_report 
+              ? JSON.stringify(responseData.detailed_report) 
+              : '',
           rawContent: responseContent
         };
       } else {
@@ -180,18 +187,18 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 
       logWithTime('评估结果', result);
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
       retryCount++;
 
       // 详细记录错误信息
-      let errorMessage = `评估请求失败: ${error.message}`;
-      if (error.code === 'ENOTFOUND') {
-        errorMessage = `DNS解析失败，无法连接到API服务器 (${API_BASE_URLS[currentUrlIndex]}): ${error.message}`;
-      } else if (error.code === 'ETIMEDOUT') {
-        errorMessage = `连接超时: ${error.message}`;
-      } else if (error.code === 'ECONNREFUSED') {
-        errorMessage = `连接被拒绝: ${error.message}`;
+      let errorMessage = `评估请求失败: ${(error as Error).message}`;
+      if ((error as {code?: string}).code === 'ENOTFOUND') {
+        errorMessage = `DNS解析失败，无法连接到API服务器 (${API_BASE_URLS[currentUrlIndex]}): ${(error as Error).message}`;
+      } else if ((error as {code?: string}).code === 'ETIMEDOUT') {
+        errorMessage = `连接超时: ${(error as Error).message}`;
+      } else if ((error as {code?: string}).code === 'ECONNREFUSED') {
+        errorMessage = `连接被拒绝: ${(error as Error).message}`;
       }
 
       logError(errorMessage, error);

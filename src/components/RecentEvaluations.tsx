@@ -10,7 +10,14 @@ interface Evaluation {
   projectDetail: string;
   currentTask: string;
   createdAt: string | Date;
-  result?: any;
+  result?: {
+    overall: number;
+    quality?: number;
+    functionality?: number;
+    maintainability?: number;
+    security?: number;
+    [key: string]: unknown;
+  };
 }
 
 export default function RecentEvaluations() {

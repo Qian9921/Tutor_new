@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 
 // 添加时间戳的日志函数
-function logWithTime(message: string, data?: any) {
+function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
   if (data) {
     console.log(`[${timestamp}] [EVALUATIONS API] ${message}`, data);
@@ -11,15 +11,16 @@ function logWithTime(message: string, data?: any) {
   }
 }
 
-function logError(message: string, error: any) {
+function logError(message: string, error: unknown) {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [EVALUATIONS API ERROR] ${message}`, error);
-  console.error(`Stack: ${error.stack || 'No stack trace'}`);
+  console.error(`Stack: ${(error as Error).stack || 'No stack trace'}`);
 }
 
 /**
  * 获取评估记录列表
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(request: NextRequest) {
   logWithTime('GET /api/evaluations - 获取评估列表');
   

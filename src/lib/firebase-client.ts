@@ -2,7 +2,7 @@ import * as firebaseClient from 'firebase/app';
 import { getFirestore as getClientFirestore } from 'firebase/firestore';
 
 // 添加时间戳的日志函数
-function logWithTime(message: string, data?: any) {
+function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
   if (data) {
     console.log(`[${timestamp}] [FIREBASE CLIENT] ${message}`, data);
@@ -11,10 +11,10 @@ function logWithTime(message: string, data?: any) {
   }
 }
 
-function logError(message: string, error: any) {
+function logError(message: string, error: unknown) {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [FIREBASE CLIENT ERROR] ${message}`, error);
-  console.error(`Stack: ${error.stack || 'No stack trace'}`);
+  console.error(`Stack: ${(error as Error).stack || 'No stack trace'}`);
 }
 
 // Firebase客户端配置

@@ -273,7 +273,7 @@ class Document {
       // 创建冲突更新部分
       const updateSet = columns
         .filter(col => col !== 'id' && col !== 'created_at' && col !== 'updated_at')
-        .map((col, i) => `${col} = EXCLUDED.${col}`)
+        .map(col => `${col} = EXCLUDED.${col}`)
         .join(', ');
       
       // 执行upsert操作
@@ -402,8 +402,8 @@ class Document {
   }
   
   // 将JavaScript对象转换为PostgreSQL格式
-  private convertToPgFormat(data: any) {
-    const result: Record<string, any> = {};
+  private convertToPgFormat(data: Record<string, unknown>) {
+    const result: Record<string, unknown> = {};
     
     for (const [key, value] of Object.entries(data)) {
       // 跳过id字段，因为会在set/update方法中单独处理

@@ -2,7 +2,7 @@ import { Octokit } from '@octokit/rest';
 import NodeCache from 'node-cache';
 
 // 添加时间戳的日志函数
-function logWithTime(message: string, data?: any) {
+function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
   if (data) {
     console.log(`[${timestamp}] [GITHUB API] ${message}`, data);
@@ -11,10 +11,10 @@ function logWithTime(message: string, data?: any) {
   }
 }
 
-function logError(message: string, error: any) {
+function logError(message: string, error: unknown) {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [GITHUB API ERROR] ${message}`, error);
-  console.error(`Stack: ${error.stack || 'No stack trace'}`);
+  console.error(`Stack: ${(error as Error).stack || 'No stack trace'}`);
 }
 
 // 清理文件内容，移除无效Unicode字符
@@ -63,11 +63,20 @@ const octokit = new Octokit({
 });
 
 // 创建缓存实例，设置1小时过期
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const repoCache = new NodeCache({ 
   stdTTL: 3600, // 1小时缓存
   checkperiod: 600, // 10分钟检查一次过期
   maxKeys: 100 // 最多缓存100个仓库
 });
+
+// 为GitHub API响应定义接口
+interface GitHubContentItem {
+  name: string;
+  path: string;
+  type: string;
+  content?: string;
+}
 
 // 获取仓库文件
 export async function getRepositoryFiles(
@@ -100,7 +109,7 @@ export async function getRepositoryFiles(
     }
     
     logWithTime(`获取到${response.data.length}个文件/目录`);
-    return response.data.map((item: any) => ({
+    return response.data.map((item: GitHubContentItem) => ({
       name: item.name,
       path: item.path,
       type: item.type,
@@ -144,8 +153,11 @@ export async function getFileContent(
   }
 }
 
-export default {
+// 创建导出对象
+const githubApi = {
   parseGitHubUrl,
   getRepositoryFiles,
   getFileContent,
-}; 
+};
+
+export default githubApi; 
