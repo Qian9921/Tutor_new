@@ -3,7 +3,7 @@ import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 import { processGitHubRepository } from '@/lib/llamaindex';
 import { evaluateCode, CodeEvaluationResult } from '@/lib/doubao';
 import { v4 as uuidv4 } from 'uuid';
-export const runtime = 'edge';
+
 // 添加日志记录函数
 function logWithTime(...args: unknown[]) {
   const timestamp = new Date().toISOString();
@@ -63,6 +63,13 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+    
+    // 检查是否等待结果完成
+    const url = new URL(request.url);
+    const waitParam = url.searchParams.get('wait');
+    const shouldWait = waitParam === 'true' || waitParam === '1';
+    
+    logWithTime(`请求模式: ${shouldWait ? '同步(等待结果)' : '异步(立即返回)'}`);
     
     // 解析请求数据
     logWithTime('解析请求JSON数据');
@@ -137,40 +144,93 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 创建后台任务处理，不阻塞响应
-    logWithTime(`启动后台评估处理任务，ID: ${evaluationId}`);
-    // 使用setTimeout确保请求处理不会被阻塞
-    setTimeout(() => {
-      processEvaluation(evaluationId, projectDetail, Array.isArray(subtasks) ? subtasks : [subtasks], currentTask, githubRepoUrl)
-        .then(() => {
-          logWithTime(`评估处理成功完成，ID: ${evaluationId}`);
-        })
-        .catch(error => {
-          logError(`评估处理失败 (${evaluationId})`, error);
-          // 更新数据库状态为失败
-          try {
-            db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId).update({
-              status: 'failed',
-              error: error instanceof Error ? error.message : String(error),
-              stack: error instanceof Error ? error.stack : undefined,
-              updatedAt: new Date()
-            });
-            logWithTime(`已更新数据库状态为失败，ID: ${evaluationId}`);
-          } catch (updateErr) {
-            logError('更新失败状态失败', updateErr);
-          }
+    if (shouldWait) {
+      // 同步模式：直接处理并等待结果
+      logWithTime(`同步模式：直接处理评估任务，ID: ${evaluationId}`);
+      
+      try {
+        // 直接调用处理函数，等待完成
+        await processEvaluation(evaluationId, projectDetail, 
+                              Array.isArray(subtasks) ? subtasks : [subtasks], 
+                              currentTask, githubRepoUrl);
+        
+        // 处理完成后，读取结果
+        const docRef = db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId);
+        const docSnapshot = await docRef.get();
+        const evaluationData = docSnapshot.data();
+        
+        logWithTime(`同步评估完成，返回结果，ID: ${evaluationId}`);
+        
+        // 返回完整结果
+        return NextResponse.json({
+          success: true,
+          message: '评估完成',
+          evaluationId,
+          status: 'completed',
+          result: evaluationData?.result || null
         });
-    }, 100);
-    
-    // 立即返回响应，包含评估ID
-    logWithTime(`返回评估请求响应，ID: ${evaluationId}`);
-    return NextResponse.json({
-      success: true,
-      message: '评估请求已接收，正在处理中',
-      evaluationId,
-      status: 'pending'
-    });
-    
+      } catch (evalError) {
+        logError(`同步评估处理失败，ID: ${evaluationId}`, evalError);
+        
+        // 更新数据库状态为失败
+        try {
+          db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId).update({
+            status: 'failed',
+            error: evalError instanceof Error ? evalError.message : String(evalError),
+            stack: evalError instanceof Error ? evalError.stack : undefined,
+            updatedAt: new Date()
+          });
+          logWithTime(`已更新数据库状态为失败，ID: ${evaluationId}`);
+        } catch (updateErr) {
+          logError('更新失败状态失败', updateErr);
+        }
+        
+        return NextResponse.json(
+          { 
+            success: false, 
+            message: '评估处理失败', 
+            evaluationId,
+            error: evalError instanceof Error ? evalError.message : String(evalError)
+          }, 
+          { status: 500 }
+        );
+      }
+    } else {
+      // 异步模式：创建后台任务处理，不阻塞响应
+      logWithTime(`异步模式：启动后台评估处理任务，ID: ${evaluationId}`);
+      
+      // 使用setTimeout确保请求处理不会被阻塞
+      setTimeout(() => {
+        processEvaluation(evaluationId, projectDetail, Array.isArray(subtasks) ? subtasks : [subtasks], currentTask, githubRepoUrl)
+          .then(() => {
+            logWithTime(`评估处理成功完成，ID: ${evaluationId}`);
+          })
+          .catch(error => {
+            logError(`评估处理失败 (${evaluationId})`, error);
+            // 更新数据库状态为失败
+            try {
+              db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId).update({
+                status: 'failed',
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+                updatedAt: new Date()
+              });
+              logWithTime(`已更新数据库状态为失败，ID: ${evaluationId}`);
+            } catch (updateErr) {
+              logError('更新失败状态失败', updateErr);
+            }
+          });
+      }, 100);
+      
+      // 立即返回响应，包含评估ID
+      logWithTime(`返回评估请求响应，ID: ${evaluationId}`);
+      return NextResponse.json({
+        success: true,
+        message: '评估请求已接收，正在处理中',
+        evaluationId,
+        status: 'pending'
+      });
+    }
   } catch (error) {
     logError('评估API错误', error);
     
