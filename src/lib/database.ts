@@ -1,8 +1,27 @@
 import { Pool } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 
+// 定义网络错误接口
+interface NetworkError {
+  code: string;
+  hostname?: string;
+  message: string;
+}
+
+// 定义数据库记录基本接口
+interface DatabaseRecord {
+  id: string;
+  created_at?: Date;
+  updated_at?: Date;
+  completed_at?: Date;
+  [key: string]: unknown;
+}
+
+// 定义日志数据类型
+type LogData = string | number | boolean | null | undefined | Record<string, unknown>;
+
 // 添加时间戳的日志函数
-function logWithTime(message: string, data?: any) {
+function logWithTime(message: string, data?: LogData) {
   const timestamp = new Date().toISOString();
   if (data) {
     console.log(`[${timestamp}] [DATABASE] ${message}`, data);
@@ -20,7 +39,7 @@ function logError(message: string, error: Error | unknown | null) {
   
   // 添加网络错误的特殊处理
   if (error && typeof error === 'object' && 'code' in error) {
-    const errObj = error as any;
+    const errObj = error as NetworkError;
     if (errObj.code === 'ENOTFOUND') {
       console.error(`[${timestamp}] [DATABASE ERROR] 网络错误: 无法解析数据库主机名。请检查您的网络连接或DNS设置。`);
       console.error(`[${timestamp}] [DATABASE ERROR] 主机名: ${errObj.hostname || '未知'}`);
@@ -199,7 +218,7 @@ class Collection {
   }
   
   // 添加新文档（自动生成ID）
-  async add(data: any) {
+  async add(data: DatabaseRecord) {
     const id = uuidv4();
     const doc = new Document(this.tableName, id);
     await doc.set(data);
@@ -225,7 +244,7 @@ class Collection {
   }
   
   // 将PostgreSQL行格式转换为Firestore格式
-  private convertToFirestoreFormat(row: any) {
+  private convertToFirestoreFormat(row: DatabaseRecord) {
     const result = { ...row };
     
     // 转换日期字段为JavaScript Date对象
@@ -252,7 +271,7 @@ class Document {
   constructor(private tableName: string, private id: string) {}
   
   // 设置文档数据
-  async set(data: any) {
+  async set(data: DatabaseRecord) {
     try {
       logWithTime(`设置文档 ${this.tableName}/${this.id}`);
       
@@ -305,7 +324,7 @@ class Document {
   }
   
   // 更新文档部分字段
-  async update(data: any) {
+  async update(data: Partial<DatabaseRecord>) {
     try {
       logWithTime(`更新文档 ${this.tableName}/${this.id}`);
       
@@ -434,7 +453,7 @@ class Document {
   }
   
   // 将PostgreSQL行格式转换为Firestore格式
-  private convertToFirestoreFormat(row: any) {
+  private convertToFirestoreFormat(row: DatabaseRecord) {
     const result = { ...row };
     
     // 转换日期字段为JavaScript Date对象
