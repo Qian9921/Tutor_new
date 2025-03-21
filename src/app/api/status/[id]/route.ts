@@ -22,9 +22,9 @@ function logError(message: string, error: unknown) {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
-  const id = params.id;
+  const id = context.params.id;
   logWithTime(`GET /api/status/${id} - 获取评估状态`);
   
   try {
@@ -51,6 +51,19 @@ export async function GET(
     }
     
     const evaluationData = docSnapshot.data();
+    
+    // 确保evaluationData不为null
+    if (!evaluationData) {
+      logWithTime(`评估数据为空: ${id}`);
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: '评估数据为空' 
+        }, 
+        { status: 404 }
+      );
+    }
+    
     logWithTime(`获取评估状态成功: ${id}`, evaluationData);
     
     return NextResponse.json({
