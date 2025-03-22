@@ -20,12 +20,6 @@ function logError(message: string, error: Error | unknown | null) {
 
 // 验证请求API密钥的中间件
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function validateApiKey(request: NextRequest): boolean {
-  // 生产环境中应该实现真正的API密钥验证
-  // 这里简单实现，实际项目中应该更严格
-  const apiKey = request.headers.get('x-api-key');
-  return !!apiKey && apiKey.length > 10;
-}
 
 /**
  * 评估API处理POST请求

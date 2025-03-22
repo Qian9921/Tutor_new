@@ -23,8 +23,10 @@ const API_BASE_URLS = [
 
 // 创建OpenAI客户端
 function createOpenAIClient(baseURL: string) {
+  const apiKey = process.env.DASHSCOPE_API_KEY || 'dummy-key';
+
   return new OpenAI({
-    apiKey: process.env.DASHSCOPE_API_KEY,
+    apiKey: apiKey,
     baseURL: baseURL,
     timeout: 600000, // 60秒超时
     maxRetries: 0,  // 我们自己处理重试
