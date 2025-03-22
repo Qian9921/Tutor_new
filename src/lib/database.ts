@@ -57,15 +57,29 @@ function logError(message: string, error: Error | unknown | null) {
 }
 
 // 创建数据库连接池
-const pool = new Pool({
-  connectionString: process.env.NODE_ENV === 'production' 
-    ? process.env.DATABASE_URL 
-    : (process.env.DATABASE_URL_LOCAL || process.env.DATABASE_URL),
-  connectionTimeoutMillis: 10000,
-  max: 5,
-  idleTimeoutMillis: 30000,
-  ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? true : false,
-});
+const pool = new Pool(
+  process.env.NODE_ENV === 'production'
+    ? {
+        // 生产环境（Cloud Run）使用Unix Socket连接Cloud SQL
+        user: process.env.PGUSER || 'tutor',
+        password: process.env.PGPASSWORD || 'NHG/;nL-dVEq4s&t',
+        database: process.env.PGDATABASE || 'tutor',
+        host: process.env.PGHOST || '/cloudsql/open-impact-lab-zob4aq:us-central1:tutor',
+        // 不需要设置端口，因为使用Unix Socket
+        ssl: false,
+        connectionTimeoutMillis: 10000,
+        max: 5,
+        idleTimeoutMillis: 30000
+      }
+    : {
+        // 开发环境使用连接字符串
+        connectionString: process.env.DATABASE_URL_LOCAL || process.env.DATABASE_URL,
+        connectionTimeoutMillis: 10000,
+        max: 5,
+        idleTimeoutMillis: 30000, 
+        ssl: (process.env.DATABASE_URL_LOCAL || process.env.DATABASE_URL)?.includes('sslmode=require') ? true : false
+      }
+);
 // 表前缀
 const TABLE_PREFIX = process.env.DATABASE_TABLE_PREFIX || 'tutor';
 
