@@ -58,11 +58,11 @@ function logError(message: string, error: Error | unknown | null) {
 
 // 创建数据库连接池
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL_LOCAL || process.env.DATABASE_URL,
   connectionTimeoutMillis: 10000, // 连接超时时间，10秒
   max: 5, // 最大连接数
   idleTimeoutMillis: 30000, // 空闲连接超时，30秒
-  ssl: (process.env.DATABASE_URL)?.includes('sslmode=require') ? true : false, // 根据连接字符串决定是否使用SSL
+  ssl: (process.env.DATABASE_URL_LOCAL || process.env.DATABASE_URL)?.includes('sslmode=require') ? true : false, // 根据连接字符串决定是否使用SSL
 });
 
 // 表前缀
