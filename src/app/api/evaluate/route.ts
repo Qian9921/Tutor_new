@@ -81,10 +81,10 @@ export async function POST(request: NextRequest) {
     
     // 验证必要字段
     logWithTime('验证请求字段');
-    const { projectDetail, subtasks, currentTask, githubRepoUrl } = requestData;
+    const { projectDetail, tasks, currentTask, evidence, githubRepoUrl } = requestData;
     
-    if (!projectDetail || !subtasks || !currentTask || !githubRepoUrl) {
-      const errorMsg = '缺少必要字段，需要提供projectDetail、subtasks、currentTask和githubRepoUrl';
+    if (!projectDetail || !tasks || !currentTask || !githubRepoUrl || !evidence) {
+      const errorMsg = '缺少必要字段，需要提供projectDetail、tasks、currentTask、evidence和githubRepoUrl';
       logError(errorMsg, null);
       
       return NextResponse.json(
@@ -102,8 +102,9 @@ export async function POST(request: NextRequest) {
     const evaluationData = {
       id: evaluationId,
       projectDetail,
-      subtasks: Array.isArray(subtasks) ? subtasks : [subtasks],
+      tasks: Array.isArray(tasks) ? tasks : [tasks],
       currentTask,
+      evidence,
       githubRepoUrl,
       status: 'pending',
       createdAt: new Date(),
@@ -145,8 +146,8 @@ export async function POST(request: NextRequest) {
       try {
         // 直接调用处理函数，等待完成
         await processEvaluation(evaluationId, projectDetail, 
-                              Array.isArray(subtasks) ? subtasks : [subtasks], 
-                              currentTask, githubRepoUrl);
+                              Array.isArray(tasks) ? tasks : [tasks], 
+                              currentTask, evidence, githubRepoUrl);
         
         // 处理完成后，读取结果
         const docRef = db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId);
@@ -195,7 +196,9 @@ export async function POST(request: NextRequest) {
       
       // 使用setTimeout确保请求处理不会被阻塞
       setTimeout(() => {
-        processEvaluation(evaluationId, projectDetail, Array.isArray(subtasks) ? subtasks : [subtasks], currentTask, githubRepoUrl)
+        processEvaluation(evaluationId, projectDetail, 
+                          Array.isArray(tasks) ? tasks : [tasks], 
+                          currentTask, evidence, githubRepoUrl)
           .then(() => {
             logWithTime(`评估处理成功完成，ID: ${evaluationId}`);
           })
@@ -245,8 +248,9 @@ export async function POST(request: NextRequest) {
 async function processEvaluation(
   evaluationId: string, 
   projectDetail: string, 
-  subtasks: string[], 
+  tasks: string[], 
   currentTask: string, 
+  evidence: string,
   githubRepoUrl: string
 ): Promise<void> {
   logWithTime(`[ID: ${evaluationId}] 开始处理评估任务`);
@@ -279,8 +283,9 @@ async function processEvaluation(
       const result = await processGitHubRepository(
         githubRepoUrl,
         projectDetail,
-        subtasks,
-        currentTask
+        tasks,
+        currentTask,
+        evidence,
       );
       repoSummary = result.repoSummary;
       relevantFiles = result.relevantFiles;
@@ -314,8 +319,9 @@ async function processEvaluation(
     try {
       evaluationResult = await evaluateCode({
         projectDetail,
-        subtasks,
+        tasks,
         currentTask,
+        evidence,
         githubRepoUrl,
         repoSummary,
         relevantFiles

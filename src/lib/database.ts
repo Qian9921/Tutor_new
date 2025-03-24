@@ -118,8 +118,9 @@ async function initializeDatabase() {
         CREATE TABLE IF NOT EXISTS ${COLLECTIONS.EVALUATIONS} (
           id TEXT PRIMARY KEY,
           project_detail TEXT,
-          subtasks JSONB,
+          tasks JSONB,
           current_task TEXT,
+          evidence TEXT,
           github_repo_url TEXT,
           status TEXT,
           status_message TEXT,
