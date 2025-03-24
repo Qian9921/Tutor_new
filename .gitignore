@@ -1,1 +1,77 @@
+# 依赖
 node_modules
+/.pnp
+.pnp.js
+
+# 测试覆盖率
+/coverage
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+.swc/
+
+# 生产环境
+/build
+/dist
+
+# 其他构建输出
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# 调试
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# 本地环境变量
+.env*.local
+.env
+.env.development
+.env.test
+.env.production
+
+# Vercel
+.vercel
+
+# Turborepo
+.turbo
+
+# PWA 文件
+**/public/sw.js
+**/public/workbox-*.js
+**/public/worker-*.js
+**/public/sw.js.map
+**/public/workbox-*.js.map
+**/public/worker-*.js.map
+
+# 编辑器目录和文件
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.code-workspace
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+*.pem
+
+# 日志
+logs
+*.log
+
+# Sentry
+.sentryclirc
+
+# 缓存
+.eslintcache
+.stylelintcache
+
+# 临时文件
+.tmp
+.temp
