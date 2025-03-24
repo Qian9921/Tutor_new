@@ -1,6 +1,5 @@
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 import { getRepositoryFiles, parseGitHubUrl } from './github';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 // 添加时间戳的日志函数
 function logWithTime(message: string, data?: unknown) {
@@ -273,8 +272,8 @@ function createMockRepoSummary(owner: string, repo: string): string {
  * 根据当前任务获取相关文件
  */
 function getRelevantFilesForTask(
-files: Array<{ path: string; content: string; }>, currentTask: string, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-tasks: string[], // eslint-disable-next-line @typescript-eslint/no-unused-vars
+files: Array<{ path: string; content: string; }>, currentTask: string, 
+tasks: string[], 
 projectDetail: string, evidence: string): Array<{path: string; content: string; relevance: number}> {
   logWithTime('根据任务筛选相关文件');
   logWithTime(`任务: ${currentTask}`);

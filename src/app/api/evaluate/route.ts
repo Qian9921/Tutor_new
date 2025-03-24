@@ -19,7 +19,6 @@ function logError(message: string, error: Error | unknown | null) {
 }
 
 // 验证请求API密钥的中间件
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 /**
  * 评估API处理POST请求

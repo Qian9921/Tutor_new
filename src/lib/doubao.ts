@@ -114,7 +114,7 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
     };
 
     // 先截断单个文件
-    let processedFiles = sortedFiles.map(file => ({
+    const processedFiles = sortedFiles.map(file => ({
       path: file.path,
       content: truncateContent(file.content, MAX_FILE_SIZE),
       relevance: file.relevance
