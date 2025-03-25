@@ -61,6 +61,35 @@ function shouldUseMockData() {
 }
 
 /**
+ * 尝试从可能包含Markdown代码块的文本中提取JSON
+ */
+function extractJsonFromMarkdown(text: string): any {
+  // 尝试直接解析
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    // 直接解析失败，尝试提取代码块
+    
+    // 匹配```json ... ``` 格式的代码块
+    const jsonBlockRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/m;
+    const match = text.match(jsonBlockRegex);
+    
+    if (match && match[1]) {
+      // 找到代码块，尝试解析其内容
+      try {
+        return JSON.parse(match[1]);
+      } catch (innerError) {
+        // 代码块内容解析失败
+        logWithTime('代码块解析失败:', innerError);
+      }
+    }
+    
+    // 如果上述方法都失败，返回null
+    return null;
+  }
+}
+
+/**
  * 评估代码
  */
 export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEvaluationResult> {
@@ -209,34 +238,22 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 
       let result: CodeEvaluationResult;
 
-      try {
-        // 尝试解析为JSON
-        if (responseContent.trim()) {
-          // 解析JSON响应
-          const parsedResponse = JSON.parse(responseContent);
-          // 返回解析后的对象
-          result = {
-            rawContent: parsedResponse
-          };
-        } else {
-          // 空响应处理
-          result = {
-            rawContent: {
-              message: "API返回了空响应",
-              isJsonFormat: false
-            }
-          };
-        }
-      } catch (
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      parseError
-      ) {
+      // 尝试解析响应内容，包括可能的Markdown代码块
+      const parsedContent = extractJsonFromMarkdown(responseContent);
+
+      if (parsedContent) {
+        // 解析成功
+        result = {
+          rawContent: parsedContent
+        };
+      } else {
         // 解析失败，返回包装的对象
-        logWithTime('响应不是JSON格式，将作为文本处理');
+        logWithTime('无法解析响应为JSON，将作为文本处理');
         result = {
           rawContent: {
-            responseContent,
-            
+            textContent: responseContent,
+            isJsonFormat: false,
+            message: "原始响应不是有效的JSON格式，已转换为对象"
           }
         };
       }
