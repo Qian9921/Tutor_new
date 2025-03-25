@@ -50,7 +50,7 @@ export interface CodeEvaluationParams {
 
 // API响应类型
 export interface CodeEvaluationResult {
-  rawContent?: string; // 原始响应内容
+  rawContent?: any; // 原始响应内容，可以是任何解析后的JSON对象
 }
 
 // 判断是否应该使用模拟数据
@@ -207,40 +207,37 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
       const responseContent = response.choices[0]?.message?.content || '';
       logWithTime('原始响应内容', responseContent);
 
-      let responseData: Record<string, unknown> = {};
-      let isJson = true;
+      let result: CodeEvaluationResult;
 
       try {
         // 尝试解析为JSON
         if (responseContent.trim()) {
-          responseData = JSON.parse(responseContent);
+          // 解析JSON响应
+          const parsedResponse = JSON.parse(responseContent);
+          // 返回解析后的对象
+          result = {
+            rawContent: parsedResponse
+          };
+        } else {
+          // 空响应处理
+          result = {
+            rawContent: {
+              message: "API返回了空响应",
+              isJsonFormat: false
+            }
+          };
         }
       } catch (
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       parseError
       ) {
-        // 解析失败，使用原始文本
-        isJson = false;
+        // 解析失败，返回包装的对象
         logWithTime('响应不是JSON格式，将作为文本处理');
-      }
-
-      // 返回结果
-      let result: CodeEvaluationResult;
-
-      if (isJson) {
-        // 处理JSON格式响应，直接使用原始JSON字符串
         result = {
-          rawContent: responseContent
-        };
-      } else {
-        // 处理文本格式响应，将文本封装为JSON格式
-        const formattedContent = JSON.stringify({
-          textContent: responseContent,
-          isJsonFormat: false,
-          message: "原始响应不是有效的JSON格式，已转换为JSON"
-        });
-        result = {
-          rawContent: formattedContent
+          rawContent: {
+            responseContent,
+            
+          }
         };
       }
 
@@ -289,23 +286,21 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 function getMockEvaluationResult(): CodeEvaluationResult {
   logWithTime('返回模拟评估结果');
   
-  // 创建示例JSON响应
-  const mockJsonResponse = JSON.stringify({
-    assessment: 0.68,
-    checkpoints: [
-      {requirement: "用户登录功能", status: "✅ 已完成", details: "登录功能正常工作"},
-      {requirement: "密码重置功能", status: "❌ 未完成", details: "缺少密码重置流程"},
-      {requirement: "安全防护机制", status: "⚠️ 部分完成", details: "缺少验证码防爆破保护"}
-    ],
-    summary: "✅登录流程完整 | ✅UI交互友好 | ❌缺少密码重置 | ❌没有记住登录状态 | ⚠️无验证码防爆破 | ⚠️密码强度检测不足",
-    improvements: [
-      "改进建议1：请详细说明如何实现短信验证码登录功能，包括需要修改的文件和具体代码示例",
-      "改进建议2：请分三步解释如何添加密码重置功能，并给出完整实现思路和代码示例",
-      "改进建议3：请提供5种防止暴力破解登录的方案"
-    ]
-  });
-  
+  // 直接返回JavaScript对象
   return {
-    rawContent: mockJsonResponse
+    rawContent: {
+      assessment: 0.68,
+      checkpoints: [
+        {requirement: "用户登录功能", status: "✅ 已完成", details: "登录功能正常工作"},
+        {requirement: "密码重置功能", status: "❌ 未完成", details: "缺少密码重置流程"},
+        {requirement: "安全防护机制", status: "⚠️ 部分完成", details: "缺少验证码防爆破保护"}
+      ],
+      summary: "✅登录流程完整 | ✅UI交互友好 | ❌缺少密码重置 | ❌没有记住登录状态 | ⚠️无验证码防爆破 | ⚠️密码强度检测不足",
+      improvements: [
+        "改进建议1：请详细说明如何实现短信验证码登录功能，包括需要修改的文件和具体代码示例",
+        "改进建议2：请分三步解释如何添加密码重置功能，并给出完整实现思路和代码示例",
+        "改进建议3：请提供5种防止暴力破解登录的方案"
+      ]
+    }
   };
 }
