@@ -50,7 +50,6 @@ export interface CodeEvaluationParams {
 
 // API响应类型
 export interface CodeEvaluationResult {
-  detailedReport: string; // 详细评价报告
   rawContent?: string; // 原始响应内容
 }
 
@@ -229,20 +228,19 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
       let result: CodeEvaluationResult;
 
       if (isJson) {
-        // 处理JSON格式响应
+        // 处理JSON格式响应，直接使用原始JSON字符串
         result = {
-          detailedReport: typeof responseData.detailed_report === 'string'
-            ? responseData.detailed_report
-            : responseData.detailed_report
-              ? JSON.stringify(responseData.detailed_report)
-              : '',
           rawContent: responseContent
         };
       } else {
-        // 处理文本格式响应
+        // 处理文本格式响应，将文本封装为JSON格式
+        const formattedContent = JSON.stringify({
+          textContent: responseContent,
+          isJsonFormat: false,
+          message: "原始响应不是有效的JSON格式，已转换为JSON"
+        });
         result = {
-          detailedReport: responseContent,
-          rawContent: responseContent // 使用原始内容作为报告
+          rawContent: formattedContent
         };
       }
 
@@ -290,39 +288,24 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
  */
 function getMockEvaluationResult(): CodeEvaluationResult {
   logWithTime('返回模拟评估结果');
+  
+  // 创建示例JSON响应
+  const mockJsonResponse = JSON.stringify({
+    assessment: 0.68,
+    checkpoints: [
+      {requirement: "用户登录功能", status: "✅ 已完成", details: "登录功能正常工作"},
+      {requirement: "密码重置功能", status: "❌ 未完成", details: "缺少密码重置流程"},
+      {requirement: "安全防护机制", status: "⚠️ 部分完成", details: "缺少验证码防爆破保护"}
+    ],
+    summary: "✅登录流程完整 | ✅UI交互友好 | ❌缺少密码重置 | ❌没有记住登录状态 | ⚠️无验证码防爆破 | ⚠️密码强度检测不足",
+    improvements: [
+      "改进建议1：请详细说明如何实现短信验证码登录功能，包括需要修改的文件和具体代码示例",
+      "改进建议2：请分三步解释如何添加密码重置功能，并给出完整实现思路和代码示例",
+      "改进建议3：请提供5种防止暴力破解登录的方案"
+    ]
+  });
+  
   return {
-    detailedReport: `
-      请先查看projectDetail, tasks, currentTask, evidence, relevantFiles, 尤其是evidence， 再按以下要求分析：
-1. 完成度评分 (0-1的小数，两位精度)
-   - 示例：0.68（完成基础功能但缺少异常处理）
-   
-2. 评估理由（使用符号标注）：
-   ✅ 已完成功能
-   ❌ 缺失功能 
-   ⚠️ 安全隐患（包含[!]紧急标记）
-   现在包含什么内容：
-   
-3. 改进建议prompt（按优先级排序）：
-   - 每个prompt必须包含操作指令（如"分三步"、"举例说明"）
-   - 前两个建议必须包含代码示例要求
-
-以严格JSON格式返回：
-{
-  "assessment": 0.75, // 评分需体现加权计算结果
-  "reasoning": "符号化评估说明（最少4个关键点）", 
-  "improvements": ["可执行的prompt指令"]
-}
-
-示例响应：
-${JSON.stringify({
-      assessment: 0.68,
-      reasoning: "✅用户登录正常 | ❌缺少密码重置 | ⚠️无验证码防爆破[!]",
-      improvements: [
-        "如何实现短信验证码登录？分三步解释并给出Python示例",
-        "用Flask添加密码重置功能，包含邮件发送的完整代码",
-        "列举5种防暴力破解方案并给出代码片段"
-      ]
-    }, null, 2)}
-`
+    rawContent: mockJsonResponse
   };
 }

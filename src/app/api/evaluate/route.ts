@@ -328,7 +328,6 @@ async function processEvaluation(
       
       logWithTime(`[ID: ${evaluationId}] 代码评估完成`);
       logWithTime(`[ID: ${evaluationId}] 评估结果:`, { 
-        detailedReport: evaluationResult.detailedReport,
         rawContent: evaluationResult.rawContent
       });
     } catch (evaluateError) {
