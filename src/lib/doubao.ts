@@ -68,9 +68,10 @@ function extractJsonFromMarkdown(text: string): any {
   try {
     return JSON.parse(text);
   } catch (e) {
-    // 直接解析失败，尝试提取代码块
+    // 记录直接解析失败的错误
+    logWithTime('直接解析JSON失败:', e);
     
-    // 匹配```json ... ``` 格式的代码块
+    // 直接解析失败，尝试提取代码块
     const jsonBlockRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/m;
     const match = text.match(jsonBlockRegex);
     
