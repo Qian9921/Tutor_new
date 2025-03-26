@@ -181,6 +181,7 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
       // 使用OpenAI SDK发送请求
       const response = await openai.chat.completions.create({
         model: 'gemini-2.0-flash', // 通义千问模型
+        //model: 'qwen-plus', // 通义千问模型
         messages: [
           {
             role: 'system',
@@ -192,6 +193,9 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 3. 对照evidence中的每个检查点，逐一评估代码实现情况
 4. 根据评估结果计算0-1之间的完成度评分
 5. 提供分析和改进建议
+6. 尽可能多的在适当的位置使用适合的emoji来增加生动性，吸引用户的关注，让内容显得活泼生动
+7. 至少在回答里用10个emoji，并且json格式可以识别
+8. emoji不要瞎用，用在合适的地方，并且种类丰富一点
 
 【评分标准】
 - 1.0: 完美实现所有evidence中的要求，代码质量高
@@ -206,22 +210,25 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 {
   "assessment": 0.xx, // 完成度评分(0-1之间的小数，保留两位)
   "checkpoints": [
-    {"requirement": "检查点1", "status": "✅ 已完成", "details": "实现分析..."},
-    {"requirement": "检查点2", "status": "❌ 未完成", "details": "缺失原因..."},
-    {"requirement": "检查点3", "status": "⚠️ 部分完成", "details": "问题分析..."}
-  ],
-  "summary": "总体代码评估，包含至少6个关键点，使用✅❌⚠️符号标注",
+    {"requirement": "检查点1", "status": "已完成", "details": "实现分析..."},
+    {"requirement": "检查点2", "status": "未完成", "details": "缺失原因..."},
+    {"requirement": "检查点3", "status": "部分完成", "details": "问题分析..."}
+  ], // 检查点要包含evidence里所有的检查点
+  "summary": "总体代码评估，包含至少6个关键点",
   "improvements": [
     "改进建议1：请详细说明如何实现X功能，包括需要修改的文件和具体代码示例",
     "改进建议2：请分三步解释如何解决Y问题，并给出完整实现思路"
-  ]
+  ] // 改进建议越多越详细越好，但不要偏离evidence里的要求
 }
 
 注意：
 - evidence是评估的核心标准，必须严格按照其中的每个检查点评估
 - 改进建议必须具体、可执行，包含明确的操作指令
 - 所有分析必须基于提供的代码文件和项目上下文
-- 评分必须客观公正，与检查点完成情况一致`
+- 评分必须客观公正，与检查点完成情况一致
+- 评估结果必须包含至少10个emoji
+- 评估结果必须使用json格式
+`
           },
           {
             role: 'user',
