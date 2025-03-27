@@ -419,12 +419,14 @@ projectDetail: string, evidence: string): Array<{path: string; content: string; 
   
   // 按相关性排序并选择前5个文件
   const sortedFiles = scoredFiles
-    .sort((a, b) => b.relevance - a.relevance)
-    .slice(0, 5); // 限制最多5个文件
+    .sort((a, b) => b.relevance - a.relevance);
+    // 不再限制文件数量
   
-  logWithTime(`筛选出${sortedFiles.length}个最相关文件`);
+  logWithTime(`按相关性排序后，返回 ${sortedFiles.length} 个文件`);
   sortedFiles.forEach((file, index) => {
-    logWithTime(`相关文件 ${index+1}: ${file.path} (相关性: ${file.relevance.toFixed(2)})`);
+    if (index < 10) { // 只记录前10个文件以避免日志过长
+      logWithTime(`相关文件 ${index+1}: ${file.path} (相关性: ${file.relevance.toFixed(2)})`);
+    }
   });
   
   return sortedFiles;

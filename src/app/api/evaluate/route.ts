@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 import { processGitHubRepository } from '@/lib/llamaindex';
-import { evaluateCode, CodeEvaluationResult } from '@/lib/doubao';
+import { evaluateCode, evaluateCodeInBatches, CodeEvaluationResult } from '@/lib/doubao';
 import { v4 as uuidv4 } from 'uuid';
 
 // 添加日志记录函数
@@ -316,7 +316,7 @@ async function processEvaluation(
     let evaluationResult: CodeEvaluationResult;
     
     try {
-      evaluationResult = await evaluateCode({
+      evaluationResult = await evaluateCodeInBatches({
         projectDetail,
         tasks,
         currentTask,

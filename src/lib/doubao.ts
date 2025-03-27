@@ -18,8 +18,8 @@ function logError(message: string, error: unknown) {
 
 // 尝试不同的API基础URL
 const API_BASE_URLS = [
-  //'https://dashscope.aliyuncs.com/compatible-mode/v1' 
-  'https://generativelanguage.googleapis.com/v1beta/openai/'       // 通义千问API
+  'https://dashscope.aliyuncs.com/compatible-mode/v1' 
+  //'https://generativelanguage.googleapis.com/v1beta/openai/'       // 通义千问API
 ];
 
 // 创建OpenAI客户端
@@ -180,8 +180,8 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 
       // 使用OpenAI SDK发送请求
       const response = await openai.chat.completions.create({
-        model: 'gemini-2.0-flash', // 通义千问模型
-        //model: 'qwen-plus', // 通义千问模型
+        //model: 'gemini-2.0-flash', // 通义千问模型
+        model: 'qwen-plus', // 通义千问模型
         messages: [
           {
             role: 'system',
@@ -328,4 +328,513 @@ function getMockEvaluationResult(): CodeEvaluationResult {
       ]
     }
   };
+}
+
+/**
+ * 文件分组工具 - 用于智能地将文件分到不同批次
+ */
+interface FileGroup {
+  files: Array<{ path: string; content: string; relevance: number }>;
+  totalSize: number;
+  directoryScore: Record<string, number>;
+}
+
+/**
+ * 批次评估结果
+ */
+interface BatchEvaluationResult {
+  batch: number;
+  totalBatches: number;
+  result: CodeEvaluationResult;
+  processedFiles: string[];
+  success: boolean;
+  error?: Error;
+}
+
+/**
+ * 批次上下文 - 在批次之间传递的信息
+ */
+interface BatchContext {
+  processedFiles: string[];
+  keyInsights: string[];
+  batchResults: BatchEvaluationResult[];
+}
+
+/**
+ * 智能地将文件分批，确保相关文件尽量在同一批次
+ */
+function createSmartFileBatches(
+  files: Array<{ path: string; content: string; relevance: number }>,
+  maxBatchSize: number
+): Array<Array<{ path: string; content: string; relevance: number }>> {
+  // 如果文件总量很小，直接返回单个批次
+  const totalSize = JSON.stringify(files).length;
+  if (totalSize <= maxBatchSize) {
+    return [files];
+  }
+
+  logWithTime(`开始智能文件分批，总文件数: ${files.length}`);
+
+  // 按目录分组文件
+  const directoryMap: Record<string, { path: string; content: string; relevance: number }[]> = {};
+  
+  for (const file of files) {
+    const dirPath = file.path.split('/').slice(0, -1).join('/');
+    if (!directoryMap[dirPath]) {
+      directoryMap[dirPath] = [];
+    }
+    directoryMap[dirPath].push(file);
+  }
+
+  // 初始化批次组
+  const fileGroups: FileGroup[] = [
+    { files: [], totalSize: 0, directoryScore: {} }
+  ];
+  
+  // 处理每个目录
+  for (const dirPath in directoryMap) {
+    const dirFiles = directoryMap[dirPath];
+    
+    // 计算该目录的文件总大小
+    const dirSize = JSON.stringify(dirFiles).length;
+    
+    // 整个目录可以放入一个批次
+    if (dirSize <= maxBatchSize * 0.8) {
+      // 尝试找到最合适的组
+      let bestGroupIndex = 0;
+      let bestScore = -1;
+      
+      for (let i = 0; i < fileGroups.length; i++) {
+        const group = fileGroups[i];
+        
+        // 检查容量
+        if (group.totalSize + dirSize > maxBatchSize) {
+          continue;
+        }
+        
+        // 计算相关性评分 
+        let score = group.directoryScore[dirPath] || 0;
+        
+        // 如果这个目录有已经存在于组中的上级目录，增加分数
+        for (const existingDir in group.directoryScore) {
+          if (dirPath.startsWith(existingDir)) {
+            score += 2;
+          } else if (existingDir.startsWith(dirPath)) {
+            score += 2;
+          }
+        }
+        
+        // 找到最高评分的组
+        if (score > bestScore || (score === bestScore && group.totalSize < fileGroups[bestGroupIndex].totalSize)) {
+          bestScore = score;
+          bestGroupIndex = i;
+        }
+      }
+      
+      // 如果找不到合适的组，创建一个新组
+      if (bestScore < 0 || fileGroups[bestGroupIndex].totalSize + dirSize > maxBatchSize) {
+        fileGroups.push({ 
+          files: [...dirFiles], 
+          totalSize: dirSize,
+          directoryScore: { [dirPath]: 1 }
+        });
+      } else {
+        // 将文件加入最合适的组
+        const group = fileGroups[bestGroupIndex];
+        group.files.push(...dirFiles);
+        group.totalSize += dirSize;
+        group.directoryScore[dirPath] = (group.directoryScore[dirPath] || 0) + 1;
+      }
+    } else {
+      // 目录太大，需要拆分
+      let tempFiles = [...dirFiles];
+      
+      // 按相关性排序
+      tempFiles.sort((a, b) => b.relevance - a.relevance);
+      
+      // 逐个添加文件到组中
+      for (const file of tempFiles) {
+        const fileSize = JSON.stringify(file).length;
+        
+        // 寻找合适的组
+        let added = false;
+        for (const group of fileGroups) {
+          if (group.totalSize + fileSize <= maxBatchSize) {
+            group.files.push(file);
+            group.totalSize += fileSize;
+            group.directoryScore[dirPath] = (group.directoryScore[dirPath] || 0) + 1;
+            added = true;
+            break;
+          }
+        }
+        
+        // 如果没有合适的组，创建新组
+        if (!added) {
+          fileGroups.push({
+            files: [file],
+            totalSize: fileSize,
+            directoryScore: { [dirPath]: 1 }
+          });
+        }
+      }
+    }
+  }
+  
+  // 优化批次：合并小批次
+  fileGroups.sort((a, b) => a.totalSize - b.totalSize);
+  for (let i = 0; i < fileGroups.length - 1; i++) {
+    const current = fileGroups[i];
+    
+    // 如果当前组太小，尝试合并
+    if (current.totalSize < maxBatchSize * 0.5) {
+      for (let j = i + 1; j < fileGroups.length; j++) {
+        const next = fileGroups[j];
+        
+        // 检查合并后是否超出大小限制
+        if (current.totalSize + next.totalSize <= maxBatchSize) {
+          // 合并组
+          current.files.push(...next.files);
+          current.totalSize += next.totalSize;
+          
+          // 合并目录评分
+          for (const dir in next.directoryScore) {
+            current.directoryScore[dir] = (current.directoryScore[dir] || 0) + next.directoryScore[dir];
+          }
+          
+          // 移除已合并的组
+          fileGroups.splice(j, 1);
+          j--;
+        }
+      }
+    }
+  }
+  
+  // 提取最终批次
+  const batches = fileGroups.map(group => group.files);
+  
+  logWithTime(`智能分批完成，创建了 ${batches.length} 个批次`);
+  batches.forEach((batch, index) => {
+    logWithTime(`批次 ${index + 1}: ${batch.length} 个文件，约 ${Math.floor(JSON.stringify(batch).length / 1024)} KB`);
+  });
+  
+  return batches;
+}
+
+/**
+ * 生成批次间的连续性提示
+ */
+function createBatchPrompt(
+  batchNumber: number, 
+  totalBatches: number, 
+  context: BatchContext,
+  isLastBatch: boolean
+): string {
+  if (batchNumber === 1) {
+    // 第一个批次
+    return `这是代码评估的第 1/${totalBatches} 批次。
+请首先阅读并理解下面的代码文件内容，之后的批次中会提供更多文件。
+请分析这些文件的结构、功能和实现方式，但暂时不要进行最终评估或打分。
+请记住您看到的内容，稍后的批次将需要您利用这些信息。`;
+  } else if (isLastBatch) {
+    // 最后一个批次
+    let previousFiles = '';
+    if (context.processedFiles && context.processedFiles.length > 0) {
+      previousFiles = `\n\n## 您在之前的批次中已分析过的文件：
+${context.processedFiles.map(path => `- ${path}`).join('\n')}`;
+    }
+    
+    let insights = '';
+    if (context.keyInsights && context.keyInsights.length > 0) {
+      insights = `\n\n## 您在之前批次中发现的主要代码特点：
+${context.keyInsights.map((insight, i) => `${i+1}. ${insight}`).join('\n')}`;
+    }
+    
+    return `## 这是代码评估的最后一个批次（${batchNumber}/${totalBatches}）
+
+您现在需要完成两项任务：
+1. 分析本批次中的代码文件
+2. 综合所有批次（包括之前批次和当前批次）的所有文件，进行全面评估
+
+请特别注意：您的评估必须基于所有已查看过的文件，而不仅仅是当前批次的文件。
+您之前看过的文件同样重要，必须纳入最终评估。${previousFiles}${insights}
+
+请在分析完本批次代码后，对照评估标准进行全面评估，提供详细报告和评分。`;
+  } else {
+    // 中间批次
+    let previousFiles = '';
+    if (context.processedFiles && context.processedFiles.length > 0) {
+      previousFiles = `\n\n您之前批次已分析过的文件：
+${context.processedFiles.map(path => `- ${path}`).join('\n')}`;
+    }
+    
+    let insights = '';
+    if (context.keyInsights && context.keyInsights.length > 0) {
+      insights = `\n\n您之前批次发现的主要代码特点：
+${context.keyInsights.map((insight, i) => `${i+1}. ${insight}`).join('\n')}`;
+    }
+    
+    return `## 这是代码评估的第 ${batchNumber}/${totalBatches} 批次
+
+请继续分析下面的代码文件，但暂时不要进行最终评估或打分。
+您已经在之前批次分析了 ${context.processedFiles.length} 个文件，现在将继续分析更多文件。${previousFiles}${insights}
+
+请记住您在本批次看到的内容，并与之前批次的分析进行关联。最后一个批次将要求您对所有文件进行综合评估。`;
+  }
+}
+
+/**
+ * 批量处理评估代码 - 将代码分成多个批次评估
+ */
+export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promise<CodeEvaluationResult> {
+  const startTime = Date.now();
+  logWithTime('开始批处理代码评估');
+  logWithTime(`项目: ${params.projectDetail.substring(0, 100)}...`);
+  logWithTime(`总文件数: ${params.relevantFiles.length}`);
+  
+  // 模拟数据快速返回
+  if (shouldUseMockData()) {
+    logWithTime('配置为使用模拟数据，跳过批处理');
+    return getMockEvaluationResult();
+  }
+  
+  // 计算批次大小限制 - 每批约75k tokens (约300K字符)
+  const MAX_BATCH_CHARS = 300000;
+  
+  // 创建批次
+  const allFiles = [...params.relevantFiles];
+  logWithTime(`准备分批，文件总数: ${allFiles.length}`);
+  
+  // 使用智能分批算法
+  const batches = createSmartFileBatches(allFiles, MAX_BATCH_CHARS);
+  
+  // 如果只有一个批次，直接评估
+  if (batches.length === 1) {
+    logWithTime('只有一个批次，直接使用标准评估');
+    return evaluateCode(params);
+  }
+  
+  logWithTime(`文件已分为 ${batches.length} 批处理`);
+  
+  // 初始化上下文
+  const context: BatchContext = {
+    processedFiles: [],
+    keyInsights: [],
+    batchResults: []
+  };
+  
+  let lastResult: CodeEvaluationResult | null = null;
+  
+  // 处理每个批次
+  for (let i = 0; i < batches.length; i++) {
+    const isLastBatch = i === batches.length - 1;
+    const batch = batches[i];
+    const batchNumber = i + 1;
+    
+    logWithTime(`处理批次 ${batchNumber}/${batches.length}, 包含 ${batch.length} 个文件`);
+    
+    try {
+      // 为当前批次创建上下文提示
+      const batchPrompt = createBatchPrompt(
+        batchNumber, 
+        batches.length, 
+        context,
+        isLastBatch
+      );
+      
+      // 创建批次参数
+      const batchParams: CodeEvaluationParams = {
+        ...params,
+        relevantFiles: batch,
+        projectDetail: `${batchPrompt}\n\n${params.projectDetail}`
+      };
+      
+      // 根据批次类型使用不同的系统提示
+      if (!isLastBatch) {
+        // 非最后批次：分析模式
+        batchParams.currentTask = `[批次${batchNumber}/${batches.length}] ${params.currentTask} - 分析模式`;
+      } else {
+        // 最后批次：评估模式
+        batchParams.currentTask = `[批次${batchNumber}/${batches.length}] ${params.currentTask} - 综合评估`;
+      }
+      
+      // 修改system prompt以确保连贯性
+      batchParams.repoSummary = isLastBatch
+        ? `${params.repoSummary}\n\n[最终批次] 请基于所有批次文件进行综合评估。`
+        : `${params.repoSummary}\n\n[批次 ${batchNumber}/${batches.length}] 请分析这些文件，记住内容，但不要最终评估。`;
+      
+      // 评估当前批次
+      logWithTime(`开始评估批次 ${batchNumber}/${batches.length}`);
+      const batchStartTime = Date.now();
+      
+      const batchResult = await evaluateCode(batchParams);
+      
+      const batchDuration = Date.now() - batchStartTime;
+      logWithTime(`批次 ${batchNumber}/${batches.length} 评估完成，耗时 ${batchDuration}ms`);
+      
+      // 收集处理过的文件路径
+      context.processedFiles.push(...batch.map(file => file.path));
+      
+      // 保存批次结果
+      const batchEvalResult: BatchEvaluationResult = {
+        batch: batchNumber,
+        totalBatches: batches.length,
+        result: batchResult,
+        processedFiles: batch.map(file => file.path),
+        success: true
+      };
+      
+      context.batchResults.push(batchEvalResult);
+      
+      // 如果不是最后一个批次，尝试提取关键见解
+      if (!isLastBatch && batchResult.rawContent) {
+        try {
+          // 尝试从结果中提取关键见解
+          const rawContent = batchResult.rawContent;
+          
+          // 收集checkpoints或summary中的信息
+          if (rawContent.checkpoints && Array.isArray(rawContent.checkpoints)) {
+            const insights = rawContent.checkpoints
+              .filter((cp: any) => cp.status && cp.details)
+              .map((cp: any) => `${cp.requirement}: ${cp.status}`);
+            
+            if (insights.length > 0) {
+              context.keyInsights.push(...insights.slice(0, 3));
+            }
+          }
+          
+          if (rawContent.summary && typeof rawContent.summary === 'string') {
+            // 提取摘要中的关键点
+            const summaryPoints = rawContent.summary
+              .split(/[|,;.]/)
+              .filter((point: string) => point.trim().length > 10)
+              .slice(0, 2);
+            
+            if (summaryPoints.length > 0) {
+              context.keyInsights.push(...summaryPoints);
+            }
+          }
+          
+          // 限制关键见解数量
+          if (context.keyInsights.length > 5) {
+            context.keyInsights = context.keyInsights.slice(0, 5);
+          }
+        } catch (error) {
+          logError('提取批次见解失败', error);
+          // 继续处理，这不是致命错误
+        }
+      }
+      
+      // 保存最后一个批次的结果
+      lastResult = batchResult;
+      
+      // 如果是最后一个批次，进行额外的汇总步骤
+      if (isLastBatch) {
+        try {
+          // 收集所有批次的分析结果
+          const batchAnalyses = context.batchResults.map(br => {
+            if (br.success && br.result.rawContent) {
+              // 提取分析部分
+              const content = br.result.rawContent;
+              return {
+                batch: br.batch,
+                files: br.processedFiles,
+                insights: content.checkpoints || [],
+                summary: content.summary || ""
+              };
+            }
+            return null;
+          }).filter(Boolean);
+          
+          // 创建汇总请求
+          if (batchAnalyses.length > 1) {
+            logWithTime(`执行批次汇总分析...`);
+            
+            // 构建汇总提示
+            const summaryPrompt = `请根据以下所有批次的代码分析结果，进行最终的综合评估。这是对所有批次（共${batches.length}批）分析的汇总。
+            
+您已经分析了以下所有文件：
+${context.processedFiles.map(path => `- ${path}`).join('\n')}
+
+每个批次的分析摘要：
+${batchAnalyses.map(ba => {
+  if (!ba) return ''; // 处理可能为null的情况
+  return `
+--- 批次 ${ba.batch} 分析 ---
+文件: ${ba.files.join(', ')}
+${ba.summary ? `摘要: ${ba.summary}` : ''}
+`;
+}).join('\n')}
+
+请基于所有这些信息，对照评估标准进行最终综合评估。
+您的评估必须考虑所有批次的所有文件，而不仅是最后一批。`;
+            
+            // 创建汇总请求参数
+            const summaryParams: CodeEvaluationParams = {
+              ...params,
+              projectDetail: params.projectDetail + "\n\n" + summaryPrompt,
+              relevantFiles: [], // 不包含代码文件，只包含分析
+              currentTask: `最终综合评估 - 基于${context.processedFiles.length}个文件的分析`,
+              repoSummary: `${params.repoSummary}\n\n[综合评估] 基于所有${batches.length}批次的分析进行最终评估。`
+            };
+            
+            // 执行汇总评估
+            const summaryStartTime = Date.now();
+            const summaryResult = await evaluateCode(summaryParams);
+            const summaryDuration = Date.now() - summaryStartTime;
+            logWithTime(`汇总分析完成，耗时 ${summaryDuration}ms`);
+            
+            // 使用汇总结果替代最后批次结果
+            lastResult = summaryResult;
+            
+            // 返回汇总结果
+            const totalDuration = Date.now() - startTime;
+            logWithTime(`批处理评估完成（含汇总），总耗时 ${totalDuration}ms`);
+            return summaryResult;
+          }
+        } catch (summaryError) {
+          logError('执行汇总分析失败，将使用最后批次结果', summaryError);
+          // 继续使用最后批次结果
+        }
+        
+        const totalDuration = Date.now() - startTime;
+        logWithTime(`批处理评估完成，总耗时 ${totalDuration}ms`);
+        return batchResult;
+      }
+      
+      // 批次间短暂暂停，避免频繁API调用
+      if (i < batches.length - 1) {
+        logWithTime(`批次间冷却，等待1秒...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    } catch (error) {
+      logError(`批次 ${batchNumber}/${batches.length} 处理失败`, error);
+      
+      // 记录失败的批次
+      context.batchResults.push({
+        batch: batchNumber,
+        totalBatches: batches.length,
+        result: { rawContent: null },
+        processedFiles: batch.map(file => file.path),
+        success: false,
+        error: error as Error
+      });
+      
+      // 如果是最后一个批次出错，抛出异常
+      if (isLastBatch) {
+        throw error;
+      }
+      
+      // 否则继续处理下一个批次
+      logWithTime(`尽管批次 ${batchNumber} 失败，但继续处理后续批次`);
+      continue;
+    }
+  }
+  
+  // 如果没有任何批次成功，抛出异常
+  if (!lastResult) {
+    throw new Error('所有批次处理都失败了');
+  }
+  
+  // 返回最后一个批次的结果
+  return lastResult;
 }
