@@ -72,7 +72,7 @@ export async function evaluateYouTubeVideo(youtubeUrl: string, prompt: string): 
   
   try {
     // 验证API密钥
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = "AIzaSyBxUe1ASm8BipPe26D45T6zE_ZM253gbMs";
     if (!apiKey) {
       throw new Error('未配置Gemini API密钥');
     }
@@ -89,7 +89,7 @@ export async function evaluateYouTubeVideo(youtubeUrl: string, prompt: string): 
       {
         fileData: {
             fileUri: youtubeUrl,
-            mimeType: "video/mp4"
+            mimeType: ""
         },
       },
     ]);

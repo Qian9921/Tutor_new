@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@google/genai": "^0.7.0",
     "@google/generative-ai": "^0.24.0",
     "@llamaindex/core": "0.2.12",
     "@octokit/rest": "20.1.2",
