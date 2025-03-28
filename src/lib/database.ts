@@ -134,6 +134,90 @@ async function initializeDatabase() {
         )
       `);
 
+      // 为评估表添加迁移 - 增加YouTube视频评估相关字段
+      logWithTime('检查并添加YouTube视频评估相关字段...');
+      try {
+        // 检查表结构并添加youtube_link字段
+        await pool.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT FROM information_schema.columns 
+              WHERE table_name = '${COLLECTIONS.EVALUATIONS.replace(/^.*\./, '')}' 
+              AND column_name = 'youtube_link'
+            ) THEN
+              ALTER TABLE ${COLLECTIONS.EVALUATIONS} ADD COLUMN youtube_link TEXT;
+              RAISE NOTICE 'Added youtube_link column to ${COLLECTIONS.EVALUATIONS} table';
+            END IF;
+          END $$;
+        `);
+
+        // 检查并添加evaluation_mode字段
+        await pool.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT FROM information_schema.columns 
+              WHERE table_name = '${COLLECTIONS.EVALUATIONS.replace(/^.*\./, '')}' 
+              AND column_name = 'evaluation_mode'
+            ) THEN
+              ALTER TABLE ${COLLECTIONS.EVALUATIONS} ADD COLUMN evaluation_mode TEXT;
+              RAISE NOTICE 'Added evaluation_mode column to ${COLLECTIONS.EVALUATIONS} table';
+            END IF;
+          END $$;
+        `);
+
+        // 检查并添加has_video_evaluation字段
+        await pool.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT FROM information_schema.columns 
+              WHERE table_name = '${COLLECTIONS.EVALUATIONS.replace(/^.*\./, '')}' 
+              AND column_name = 'has_video_evaluation'
+            ) THEN
+              ALTER TABLE ${COLLECTIONS.EVALUATIONS} ADD COLUMN has_video_evaluation BOOLEAN DEFAULT FALSE;
+              RAISE NOTICE 'Added has_video_evaluation column to ${COLLECTIONS.EVALUATIONS} table';
+            END IF;
+          END $$;
+        `);
+
+        // 检查并添加video_evaluation字段
+        await pool.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT FROM information_schema.columns 
+              WHERE table_name = '${COLLECTIONS.EVALUATIONS.replace(/^.*\./, '')}' 
+              AND column_name = 'video_evaluation'
+            ) THEN
+              ALTER TABLE ${COLLECTIONS.EVALUATIONS} ADD COLUMN video_evaluation JSONB;
+              RAISE NOTICE 'Added video_evaluation column to ${COLLECTIONS.EVALUATIONS} table';
+            END IF;
+          END $$;
+        `);
+
+        // 检查并添加video_evaluation_error字段
+        await pool.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT FROM information_schema.columns 
+              WHERE table_name = '${COLLECTIONS.EVALUATIONS.replace(/^.*\./, '')}' 
+              AND column_name = 'video_evaluation_error'
+            ) THEN
+              ALTER TABLE ${COLLECTIONS.EVALUATIONS} ADD COLUMN video_evaluation_error TEXT;
+              RAISE NOTICE 'Added video_evaluation_error column to ${COLLECTIONS.EVALUATIONS} table';
+            END IF;
+          END $$;
+        `);
+
+        logWithTime('YouTube视频评估相关字段检查和添加完成');
+      } catch (migrationError) {
+        logError('YouTube视频评估字段迁移失败', migrationError);
+        // 继续执行，不要因为迁移失败而中断整个初始化过程
+      }
+
       // 创建缓存表
       await pool.query(`
         CREATE TABLE IF NOT EXISTS ${COLLECTIONS.CACHE} (
@@ -311,6 +395,32 @@ class Collection {
       delete result.current_task;
     }
 
+    // 添加YouTube视频评估相关字段处理
+    if ('youtube_link' in result) {
+      result.youtubeLink = result.youtube_link;
+      delete result.youtube_link;
+    }
+
+    if ('evaluation_mode' in result) {
+      result.evaluationMode = result.evaluation_mode;
+      delete result.evaluation_mode;
+    }
+
+    if ('has_video_evaluation' in result) {
+      result.hasVideoEvaluation = result.has_video_evaluation;
+      delete result.has_video_evaluation;
+    }
+
+    if ('video_evaluation' in result) {
+      result.videoEvaluation = result.video_evaluation;
+      delete result.video_evaluation;
+    }
+
+    if ('video_evaluation_error' in result) {
+      result.videoEvaluationError = result.video_evaluation_error;
+      delete result.video_evaluation_error;
+    }
+
     return result;
   }
 }
@@ -486,6 +596,26 @@ class Document {
         result['created_at'] = value;
       } else if (key === 'completedAt') {
         result['completed_at'] = value;
+      } else if (key === 'statusMessage') {
+        result['status_message'] = value;
+      } else if (key === 'githubRepoUrl') {
+        result['github_repo_url'] = value;
+      } else if (key === 'repoSummary') {
+        result['repo_summary'] = value;
+      } else if (key === 'projectDetail') {
+        result['project_detail'] = value;
+      } else if (key === 'currentTask') {
+        result['current_task'] = value;
+      } else if (key === 'youtubeLink') {
+        result['youtube_link'] = value;
+      } else if (key === 'evaluationMode') {
+        result['evaluation_mode'] = value;
+      } else if (key === 'hasVideoEvaluation') {
+        result['has_video_evaluation'] = value;
+      } else if (key === 'videoEvaluation') {
+        result['video_evaluation'] = value;
+      } else if (key === 'videoEvaluationError') {
+        result['video_evaluation_error'] = value;
       } else if (value === null) {
         // 处理null值
         result[pgKey] = null;
@@ -543,6 +673,32 @@ class Document {
     if (result.current_task) {
       result.currentTask = result.current_task;
       delete result.current_task;
+    }
+
+    // 添加YouTube视频评估相关字段处理
+    if ('youtube_link' in result) {
+      result.youtubeLink = result.youtube_link;
+      delete result.youtube_link;
+    }
+
+    if ('evaluation_mode' in result) {
+      result.evaluationMode = result.evaluation_mode;
+      delete result.evaluation_mode;
+    }
+
+    if ('has_video_evaluation' in result) {
+      result.hasVideoEvaluation = result.has_video_evaluation;
+      delete result.has_video_evaluation;
+    }
+
+    if ('video_evaluation' in result) {
+      result.videoEvaluation = result.video_evaluation;
+      delete result.video_evaluation;
+    }
+
+    if ('video_evaluation_error' in result) {
+      result.videoEvaluationError = result.video_evaluation_error;
+      delete result.video_evaluation_error;
     }
 
     return result;

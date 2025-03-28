@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 import { processGitHubRepository } from '@/lib/llamaindex';
-import { evaluateCode, evaluateCodeInBatches, CodeEvaluationResult } from '@/lib/doubao';
+import { evaluateCodeInBatches, evaluateVideoPresentation, CodeEvaluationResult } from '@/lib/doubao';
 import { v4 as uuidv4 } from 'uuid';
 
 // 添加日志记录函数
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     
     // 验证必要字段
     logWithTime('验证请求字段');
-    const { projectDetail, tasks, currentTask, evidence, githubRepoUrl } = requestData;
+    const { projectDetail, tasks, currentTask, evidence, githubRepoUrl, youtubeLink } = requestData;
     
     if (!projectDetail || !tasks || !currentTask || !githubRepoUrl || !evidence) {
       const errorMsg = '缺少必要字段，需要提供projectDetail、tasks、currentTask、evidence和githubRepoUrl';
@@ -97,6 +97,10 @@ export async function POST(request: NextRequest) {
     logWithTime(`生成评估ID: ${evaluationId}`);
     logWithTime(`评估集合路径: ${COLLECTIONS.EVALUATIONS}`);
     
+    // 确定评估模式
+    const evaluationMode = youtubeLink ? 'code_and_video' : 'code_only';
+    logWithTime(`评估模式: ${evaluationMode}`);
+    
     // 构建评估记录
     const evaluationData = {
       id: evaluationId,
@@ -105,10 +109,14 @@ export async function POST(request: NextRequest) {
       currentTask,
       evidence,
       githubRepoUrl,
+      youtubeLink,
+      evaluationMode,
+      hasVideoEvaluation: !!youtubeLink,
       status: 'pending',
       createdAt: new Date(),
       updatedAt: new Date(),
       result: null,
+      videoEvaluation: null,
       error: null
     };
     
@@ -146,7 +154,7 @@ export async function POST(request: NextRequest) {
         // 直接调用处理函数，等待完成
         await processEvaluation(evaluationId, projectDetail, 
                               Array.isArray(tasks) ? tasks : [tasks], 
-                              currentTask, evidence, githubRepoUrl);
+                              currentTask, evidence, githubRepoUrl, youtubeLink);
         
         // 处理完成后，读取结果
         const docRef = db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId);
@@ -197,7 +205,7 @@ export async function POST(request: NextRequest) {
       setTimeout(() => {
         processEvaluation(evaluationId, projectDetail, 
                           Array.isArray(tasks) ? tasks : [tasks], 
-                          currentTask, evidence, githubRepoUrl)
+                          currentTask, evidence, githubRepoUrl, youtubeLink)
           .then(() => {
             logWithTime(`评估处理成功完成，ID: ${evaluationId}`);
           })
@@ -241,6 +249,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// 添加评估模式类型定义
+type EvaluationMode = 'code_only' | 'code_and_video';
+
 /**
  * 后台处理评估任务
  */
@@ -250,10 +261,17 @@ async function processEvaluation(
   tasks: string[], 
   currentTask: string, 
   evidence: string,
-  githubRepoUrl: string
+  githubRepoUrl: string,
+  youtubeLink?: string
 ): Promise<void> {
+  // 确定评估模式
+  const evaluationMode: EvaluationMode = youtubeLink ? 'code_and_video' : 'code_only';
+  logWithTime(`[ID: ${evaluationId}] 评估模式: ${evaluationMode}`);
   logWithTime(`[ID: ${evaluationId}] 开始处理评估任务`);
-  logWithTime(`[ID: ${evaluationId}] 项目: ${projectDetail}, GitHub URL: ${githubRepoUrl}`);
+  logWithTime(`[ID: ${evaluationId}] 项目: ${projectDetail.substring(0, 100)}..., GitHub URL: ${githubRepoUrl}`);
+  if (youtubeLink) {
+    logWithTime(`[ID: ${evaluationId}] YouTube链接: ${youtubeLink}`);
+  }
   
   try {
     // 确保数据库已初始化
@@ -323,7 +341,8 @@ async function processEvaluation(
         evidence,
         githubRepoUrl,
         repoSummary,
-        relevantFiles
+        relevantFiles,
+        youtubeLink
       });
       
       logWithTime(`[ID: ${evaluationId}] 代码评估完成`);
@@ -335,17 +354,68 @@ async function processEvaluation(
       throw new Error(`代码评估失败: ${(evaluateError as Error).message}`);
     }
     
-    // 更新状态：评估完成
-    logWithTime(`[ID: ${evaluationId}] 更新状态: 评估完成`);
+    // 更新状态和数据库
+    const updateData: Record<string, unknown> = {
+      status: 'completed',
+      statusMessage: '评估已完成',
+      result: evaluationResult,
+      updatedAt: new Date(),
+      completedAt: new Date()
+    };
+    
+    // 如果有视频评估需求，进入终审模式
+    if (evaluationMode === 'code_and_video' && youtubeLink) {
+      // 更新状态为视频评估中
+      try {
+        await db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId).update({
+          status: 'video_evaluating',
+          statusMessage: '代码评估完成，正在评估视频演示',
+          result: evaluationResult,
+          updatedAt: new Date()
+        });
+        logWithTime(`[ID: ${evaluationId}] 状态已更新为video_evaluating`);
+      } catch (updateError) {
+        logError(`[ID: ${evaluationId}] 更新状态失败`, updateError);
+        // 尽管更新状态失败，但继续处理
+      }
+      
+      try {
+        // 调用视频评估函数
+        logWithTime(`[ID: ${evaluationId}] 开始评估视频演示: ${youtubeLink}`);
+        const videoResult = await evaluateVideoPresentation(
+          youtubeLink,
+          projectDetail,
+          tasks,
+          evaluationResult
+        );
+        
+        // 更新视频评估结果 - 直接使用返回的对象，其中包含videoRawContent字段
+        updateData.videoEvaluation = videoResult;
+        updateData.statusMessage = '代码和视频评估已完成';
+        logWithTime(`[ID: ${evaluationId}] 视频评估完成`);
+        
+        // 记录日志，确认视频评估结果格式
+        if (videoResult.videoRawContent) {
+          logWithTime(`[ID: ${evaluationId}] 视频评估结果包含videoRawContent字段`, {
+            presentationScore: videoResult.videoRawContent.presentationScore,
+            summaryLength: videoResult.videoRawContent.summary?.length || 0
+          });
+        } else {
+          logWithTime(`[ID: ${evaluationId}] 警告：视频评估结果不包含videoRawContent字段`);
+        }
+      } catch (videoError) {
+        logError(`[ID: ${evaluationId}] 视频评估失败`, videoError);
+        updateData.videoEvaluationError = videoError instanceof Error 
+          ? videoError.message 
+          : String(videoError);
+        updateData.statusMessage = '代码评估完成，但视频评估失败';
+      }
+    }
+    
+    // 最终更新评估状态
     try {
-      await db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId).update({
-        status: 'completed',
-        statusMessage: '评估已完成',
-        result: evaluationResult,
-        updatedAt: new Date(),
-        completedAt: new Date()
-      });
-      logWithTime(`[ID: ${evaluationId}] 状态已更新为completed`);
+      await db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId).update(updateData);
+      logWithTime(`[ID: ${evaluationId}] 最终状态已更新为completed`);
     } catch (updateError) {
       logError(`[ID: ${evaluationId}] 更新完成状态失败`, updateError);
       // 尽管更新状态失败，但已完成处理

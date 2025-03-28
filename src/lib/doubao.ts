@@ -1,4 +1,5 @@
 import { OpenAI } from 'openai';
+import { evaluateYouTubeVideo, extractJsonFromMarkdown as extractJsonFromMarkdownGemini } from './gemini';
 
 // 添加时间戳的日志函数
 function logWithTime(message: string, data?: unknown) {
@@ -18,8 +19,8 @@ function logError(message: string, error: unknown) {
 
 // 尝试不同的API基础URL
 const API_BASE_URLS = [
-  'https://dashscope.aliyuncs.com/compatible-mode/v1' 
-  //'https://generativelanguage.googleapis.com/v1beta/openai/'       // 通义千问API
+  //'https://dashscope.aliyuncs.com/compatible-mode/v1' 
+  'https://generativelanguage.googleapis.com/v1beta/openai/'       // 通义千问API
 ];
 
 // 创建OpenAI客户端
@@ -46,11 +47,22 @@ export interface CodeEvaluationParams {
   githubRepoUrl: string;
   repoSummary: string;
   relevantFiles: Array<{ path: string; content: string; relevance: number }>;
+  youtubeLink?: string; // 新增可选的YouTube链接
 }
 
 // API响应类型
 export interface CodeEvaluationResult {
   rawContent?: any; // 原始响应内容，可以是任何解析后的JSON对象
+}
+
+// 添加视频评估结果接口
+export interface VideoEvaluationResult {
+  videoRawContent: {
+    presentationScore: number; // 演示评分
+    summary: string; // 视频摘要
+    codeVideoAlignment: Array<{ aspect: string; aligned: boolean; details: string }>; // 代码与视频的契合点
+    overallFeedback: string; // 整体反馈
+  };
 }
 
 // 判断是否应该使用模拟数据
@@ -180,8 +192,8 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 
       // 使用OpenAI SDK发送请求
       const response = await openai.chat.completions.create({
-        //model: 'gemini-2.0-flash', // 通义千问模型
-        model: 'qwen-plus', // 通义千问模型
+        model: 'gemini-2.0-flash', // 通义千问模型
+        //model: 'qwen-plus', // 通义千问模型
         messages: [
           {
             role: 'system',
@@ -447,7 +459,7 @@ function createSmartFileBatches(
       }
     } else {
       // 目录太大，需要拆分
-      let tempFiles = [...dirFiles];
+      const tempFiles = [...dirFiles];
       
       // 按相关性排序
       tempFiles.sort((a, b) => b.relevance - a.relevance);
@@ -837,4 +849,93 @@ ${ba.summary ? `摘要: ${ba.summary}` : ''}
   
   // 返回最后一个批次的结果
   return lastResult;
+}
+
+/**
+ * 创建视频评估提示
+ */
+function createVideoEvaluationPrompt(
+  youtubeLink: string,
+  projectDetail: string,
+  tasks: string[],
+  codeEvaluation: CodeEvaluationResult
+): string {
+  return `请评估以下YouTube视频演示与GitHub代码仓库的契合度：
+
+【项目信息】
+${projectDetail}
+
+【项目任务】
+${tasks.map((task, index) => `${index + 1}. ${task}`).join('\n')}
+
+【代码评估结果】
+代码完成度评分: ${codeEvaluation.rawContent?.assessment || 'N/A'}
+代码分析摘要: ${codeEvaluation.rawContent?.summary || 'N/A'}
+关键检查点:
+${codeEvaluation.rawContent?.checkpoints?.map((cp: any) => `- ${cp.requirement}: ${cp.status}`).join('\n') || 'N/A'}
+
+【评估任务】
+1. 观看视频演示 (${youtubeLink})
+2. 分析视频内容与代码实现的一致性
+3. 评估演讲者对项目的理解和表达能力
+4. 评估视频演示是否覆盖了代码中实现的主要功能
+
+请提供以下JSON格式的评估结果：
+{
+  "presentationScore": 0.xx, // 演示质量评分(0-1之间)
+  "summary": "视频内容摘要...",
+  "codeVideoAlignment": [
+    {"aspect": "功能A", "aligned": true/false, "details": "详细说明..."},
+    {"aspect": "功能B", "aligned": true/false, "details": "详细说明..."}
+    // 至少分析5个主要方面
+  ],
+  "overallFeedback": "综合评价和建议..."
+}`;
+}
+
+/**
+ * 评估视频演示
+ */
+export async function evaluateVideoPresentation(
+  youtubeLink: string,
+  projectDetail: string,
+  tasks: string[],
+  codeEvaluationResult: CodeEvaluationResult
+): Promise<VideoEvaluationResult> {
+  logWithTime('开始视频演示评估');
+  logWithTime(`YouTube链接: ${youtubeLink}`);
+  
+  try {
+    // 创建评估提示
+    const evaluationPrompt = createVideoEvaluationPrompt(
+      youtubeLink,
+      projectDetail,
+      tasks,
+      codeEvaluationResult
+    );
+    
+    // 调用Gemini API评估视频
+    const responseText = await evaluateYouTubeVideo(youtubeLink, evaluationPrompt);
+    
+    // 解析响应结果
+    const parsedResult = extractJsonFromMarkdownGemini(responseText);
+    
+    if (!parsedResult) {
+      throw new Error('无法解析视频评估结果');
+    }
+    
+    logWithTime('视频评估完成');
+    
+    return {
+      videoRawContent: {
+        presentationScore: parsedResult.presentationScore || 0,
+        summary: parsedResult.summary || '',
+        codeVideoAlignment: parsedResult.codeVideoAlignment || [],
+        overallFeedback: parsedResult.overallFeedback || ''
+      }
+    };
+  } catch (error) {
+    logError('视频评估失败', error);
+    throw new Error(`视频评估失败: ${(error as Error).message}`);
+  }
 }

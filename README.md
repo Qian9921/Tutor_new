@@ -57,6 +57,9 @@ GITHUB_TOKEN=your-github-token
 
 # 豆包API密钥
 DOUBAO_API_KEY=your-doubao-api-key
+
+# Google Gemini API密钥
+GEMINI_API_KEY=your-gemini-api-key
 ```
 
 ### 启动开发服务器
@@ -80,7 +83,8 @@ POST `/api/evaluate`
   "projectDetail": "项目详情描述",
   "subtasks": ["子任务1", "子任务2", "子任务3"],
   "currentTask": "当前任务描述",
-  "githubRepoUrl": "https://github.com/username/repo"
+  "githubRepoUrl": "https://github.com/username/repo",
+  "youtubeLink": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 }
 ```
 
@@ -135,7 +139,16 @@ GET `/api/status/{evaluationId}`
       "suggestions": ["建议1", "建议2", "建议3"]
     },
     "createdAt": "2023-05-01T12:00:00.000Z",
-    "completedAt": "2023-05-01T12:05:00.000Z"
+    "completedAt": "2023-05-01T12:05:00.000Z",
+    "videoEvaluation": {
+      "presentationScore": 0.85,
+      "summary": "视频演示摘要...",
+      "codeVideoAlignment": [
+        { "aspect": "功能A", "aligned": true, "details": "详细说明..." },
+        // ...更多方面的评估
+      ],
+      "overallFeedback": "整体反馈..."
+    }
   }
 }
 ```
