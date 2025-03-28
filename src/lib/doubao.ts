@@ -19,8 +19,8 @@ function logError(message: string, error: unknown) {
 
 // 尝试不同的API基础URL
 const API_BASE_URLS = [
-  'https://dashscope.aliyuncs.com/compatible-mode/v1' 
-  //'https://generativelanguage.googleapis.com/v1beta/openai/'       // 通义千问API
+  //'https://dashscope.aliyuncs.com/compatible-mode/v1' 
+  'https://generativelanguage.googleapis.com/v1beta/openai/'       // 通义千问API
 ];
 
 // 创建OpenAI客户端
@@ -193,8 +193,8 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 
       // 使用OpenAI SDK发送请求
       const response = await openai.chat.completions.create({
-        //model: 'gemini-2.0-flash', // 通义千问模型
-        model: 'qwen-plus', // 通义千问模型
+        model: 'gemini-2.0-flash', // 通义千问模型
+        //model: 'qwen-plus', // 通义千问模型
         messages: [
           {
             role: 'system',
