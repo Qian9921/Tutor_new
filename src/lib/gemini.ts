@@ -82,10 +82,10 @@ export async function evaluateYouTubeVideo(youtubeUrl: string, prompt: string): 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     
     logWithTime('发送视频评估请求到Gemini API');
-    
+    logWithTime(prompt);
     // 发送评估请求
     const result = await model.generateContent([
-      prompt,
+      'hi',
       {
         fileData: {
             fileUri: youtubeUrl,
