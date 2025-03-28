@@ -57,12 +57,13 @@ export interface CodeEvaluationResult {
 
 // 添加视频评估结果接口
 export interface VideoEvaluationResult {
-  videoRawContent: {
-    presentationScore: number; // 演示评分
-    summary: string; // 视频摘要
-    codeVideoAlignment: Array<{ aspect: string; aligned: boolean; details: string }>; // 代码与视频的契合点
-    overallFeedback: string; // 整体反馈
-  };
+  videoRawContent?: any;
+  // videoRawContent: {
+  //   presentationScore: number; // 演示评分
+  //   summary: string; // 视频摘要
+  //   codeVideoAlignment: Array<{ aspect: string; aligned: boolean; details: string }>; // 代码与视频的契合点
+  //   overallFeedback: string; // 整体反馈
+  // };
 }
 
 // 判断是否应该使用模拟数据
