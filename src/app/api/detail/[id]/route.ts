@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
+import { VideoEvaluationResult } from '@/lib/doubao';
+
+// 定义评估数据类型
+interface EvaluationData {
+  result?: any;
+  videoEvaluation?: VideoEvaluationResult;
+  status?: string;
+  statusMessage?: string;
+  updatedAt?: any;
+  [key: string]: any;
+}
+
 // 添加时间戳的日志函数
 function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
@@ -47,7 +59,7 @@ export async function GET(
       );
     }
     
-    const evaluationData = docSnapshot.data();
+    const evaluationData = docSnapshot.data() as EvaluationData;
     
     // 确保evaluationData不为null
     if (!evaluationData) {
@@ -60,10 +72,26 @@ export async function GET(
     
     logWithTime(`找到评估记录: ${id}`, evaluationData);
     
+    // 确保评估结果格式一致，支持终审模式下代码和视频评估结果的呈现
+    let formattedResult: any = evaluationData.result || null;
+    
+    // 检查是否需要将视频评估结果合并到评估结果中（保持videoRawContent与rawContent平级）
+    if (formattedResult && 
+        !formattedResult.videoRawContent && 
+        evaluationData.videoEvaluation && 
+        evaluationData.videoEvaluation.videoRawContent) {
+      // 深拷贝以避免修改原始数据
+      formattedResult = JSON.parse(JSON.stringify(formattedResult));
+      // 将videoRawContent放在与rawContent同级
+      formattedResult.videoRawContent = evaluationData.videoEvaluation.videoRawContent;
+      logWithTime(`为评估 ${id} 合并了视频评估结果（与rawContent平级）`);
+    }
+    
     return NextResponse.json({
       success: true,
       evaluation: {
         ...evaluationData,
+        result: formattedResult,
         id
       }
     });

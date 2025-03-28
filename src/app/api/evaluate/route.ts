@@ -394,6 +394,18 @@ async function processEvaluation(
         updateData.statusMessage = '代码和视频评估已完成';
         logWithTime(`[ID: ${evaluationId}] 视频评估完成`);
         
+        // 将视频评估结果合并到评估结果中（与rawContent平级）
+        if (videoResult.videoRawContent && evaluationResult.rawContent) {
+          // 创建新的评估结果对象，将videoRawContent放在与rawContent同级
+          const combinedResult = {
+            ...evaluationResult,
+            videoRawContent: videoResult.videoRawContent
+          };
+          // 更新result字段
+          updateData.result = combinedResult;
+          logWithTime(`[ID: ${evaluationId}] 已将视频评估结果合并到评估结果中（与rawContent平级）`);
+        }
+        
         // 记录日志，确认视频评估结果格式
         if (videoResult.videoRawContent) {
           logWithTime(`[ID: ${evaluationId}] 视频评估结果包含videoRawContent字段`, {
