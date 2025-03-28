@@ -2,14 +2,54 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 import { VideoEvaluationResult } from '@/lib/doubao';
 
+// 定义具体的类型，替代any
+interface CodeEvaluationCheckpoint {
+  requirement: string;
+  status: string;
+  details: string;
+}
+
+interface CodeEvaluationContent {
+  assessment: number;
+  checkpoints: CodeEvaluationCheckpoint[];
+  summary: string;
+  improvements: string[];
+  [key: string]: unknown; // 允许其他可能的属性
+}
+
+interface VideoEvaluationContent {
+  presentationScore: number;
+  summary: string;
+  codeVideoAlignment: Array<{
+    aspect: string;
+    aligned: boolean;
+    details: string;
+  }>;
+  overallFeedback: string;
+  [key: string]: unknown; // 允许其他可能的属性
+}
+
+interface FirestoreTimestamp {
+  seconds: number;
+  nanoseconds: number;
+  toDate: () => Date;
+  [key: string]: unknown;
+}
+
+interface EvaluationResult {
+  rawContent?: CodeEvaluationContent;
+  videoRawContent?: VideoEvaluationContent;
+  [key: string]: unknown;
+}
+
 // 定义评估数据类型
 interface EvaluationData {
-  result?: any;
+  result?: EvaluationResult;
   videoEvaluation?: VideoEvaluationResult;
   status?: string;
   statusMessage?: string;
-  updatedAt?: any;
-  [key: string]: any;
+  updatedAt?: Date | FirestoreTimestamp;
+  [key: string]: unknown;
 }
 
 // 添加时间戳的日志函数
@@ -96,7 +136,7 @@ export async function GET(
           logWithTime(`获取评估状态成功 (${attempt+1}次尝试): ${id}，状态: ${evaluationData.status}`);
           
           // 确保评估结果格式一致，支持终审模式下代码和视频评估结果的呈现
-          let formattedResult: any = evaluationData.result || null;
+          let formattedResult: EvaluationResult | null = evaluationData.result || null;
           
           // 检查是否需要将视频评估结果合并到评估结果中（保持videoRawContent与rawContent平级）
           if (formattedResult && 
@@ -104,7 +144,7 @@ export async function GET(
               evaluationData.videoEvaluation && 
               evaluationData.videoEvaluation.videoRawContent) {
             // 深拷贝以避免修改原始数据
-            formattedResult = JSON.parse(JSON.stringify(formattedResult));
+            formattedResult = JSON.parse(JSON.stringify(formattedResult)) as EvaluationResult;
             // 将videoRawContent放在与rawContent同级
             formattedResult.videoRawContent = evaluationData.videoEvaluation.videoRawContent;
             logWithTime(`为评估 ${id} 合并了视频评估结果（与rawContent平级）`);
@@ -173,7 +213,7 @@ export async function GET(
       logWithTime(`获取评估状态成功: ${id}`, evaluationData);
       
       // 确保评估结果格式一致，支持终审模式下代码和视频评估结果的呈现
-      let formattedResult: any = evaluationData.result || null;
+      let formattedResult: EvaluationResult | null = evaluationData.result || null;
       
       // 检查是否需要将视频评估结果合并到评估结果中（保持videoRawContent与rawContent平级）
       if (formattedResult && 
@@ -181,7 +221,7 @@ export async function GET(
           evaluationData.videoEvaluation && 
           evaluationData.videoEvaluation.videoRawContent) {
         // 深拷贝以避免修改原始数据
-        formattedResult = JSON.parse(JSON.stringify(formattedResult));
+        formattedResult = JSON.parse(JSON.stringify(formattedResult)) as EvaluationResult;
         // 将videoRawContent放在与rawContent同级
         formattedResult.videoRawContent = evaluationData.videoEvaluation.videoRawContent;
         logWithTime(`为评估 ${id} 合并了视频评估结果（与rawContent平级）`);
