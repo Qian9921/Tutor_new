@@ -98,7 +98,7 @@ export async function evaluateYouTubeVideo(youtubeUrl: string, prompt: string): 
     const filePart = {
       fileData: {
         fileUri: youtubeUrl,
-        mimeType: "", // 为YouTube视频指定MIME类型
+        mimeType: "video/mp4", // 为YouTube视频指定MIME类型
       },
     };
     
