@@ -21,13 +21,17 @@ function logError(message: string, error: unknown) {
  */
 export function extractJsonFromMarkdown(text: string): Record<string, unknown> | null {
   try {
+    logWithTime('尝试从响应中提取JSON');
+    
     // 直接尝试解析整个文本
     try {
-      return JSON.parse(text);
+      const result = JSON.parse(text);
+      logWithTime('成功直接解析JSON');
+      return result;
     /* eslint-disable @typescript-eslint/no-unused-vars */
     } catch (_) {
     /* eslint-enable @typescript-eslint/no-unused-vars */
-      // 不是纯JSON，继续尝试提取
+      logWithTime('直接解析失败，尝试其他方法');
     }
 
     // 尝试提取代码块中的JSON
@@ -35,11 +39,13 @@ export function extractJsonFromMarkdown(text: string): Record<string, unknown> |
     const match = text.match(codeBlockRegex);
     if (match && match[1]) {
       try {
-        return JSON.parse(match[1]);
+        const result = JSON.parse(match[1]);
+        logWithTime('成功从代码块中解析JSON');
+        return result;
       /* eslint-disable @typescript-eslint/no-unused-vars */
       } catch (_) {
       /* eslint-enable @typescript-eslint/no-unused-vars */
-        // 代码块解析失败，继续尝试其他方法
+        logWithTime('代码块解析失败，继续尝试其他方法');
       }
     }
 
@@ -48,17 +54,42 @@ export function extractJsonFromMarkdown(text: string): Record<string, unknown> |
     const jsonMatch = text.match(jsonRegex);
     if (jsonMatch && jsonMatch[0]) {
       try {
-        return JSON.parse(jsonMatch[0]);
+        const result = JSON.parse(jsonMatch[0]);
+        logWithTime('成功从文本中提取并解析JSON');
+        return result;
       /* eslint-disable @typescript-eslint/no-unused-vars */
-      } catch (_) {
+      } catch (jsonError) {
       /* eslint-enable @typescript-eslint/no-unused-vars */
-        // JSON解析失败，返回null
+        logWithTime('JSON提取失败，尝试修复常见错误');
+        
+        // 尝试修复一些常见的JSON格式错误
+        let fixedJson = jsonMatch[0];
+        
+        // 1. 处理单引号替换为双引号
+        fixedJson = fixedJson.replace(/(['"])([^'"]*?)(['"])\s*:/g, '"$2":');
+        fixedJson = fixedJson.replace(/:\s*(['"])([^'"]*?)(['"])/g, ':"$2"');
+        
+        // 2. 处理末尾多余的逗号
+        fixedJson = fixedJson.replace(/,\s*}/g, '}');
+        fixedJson = fixedJson.replace(/,\s*\]/g, ']');
+        
+        // 尝试解析修复后的JSON
+        try {
+          const result = JSON.parse(fixedJson);
+          logWithTime('成功修复并解析JSON');
+          return result;
+        /* eslint-disable @typescript-eslint/no-unused-vars */
+        } catch (_) {
+        /* eslint-enable @typescript-eslint/no-unused-vars */
+          logWithTime('修复后仍然无法解析JSON');
+        }
       }
     }
 
+    logWithTime('所有JSON解析方法都失败');
     return null;
   } catch (error) {
-    logError('JSON提取失败', error);
+    logError('JSON提取过程发生错误', error);
     return null;
   }
 }

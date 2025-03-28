@@ -19,8 +19,8 @@ function logError(message: string, error: unknown) {
 
 // 尝试不同的API基础URL
 const API_BASE_URLS = [
-  //'https://dashscope.aliyuncs.com/compatible-mode/v1' 
-  'https://generativelanguage.googleapis.com/v1beta/openai/'       // 通义千问API
+  'https://dashscope.aliyuncs.com/compatible-mode/v1' 
+  //'https://generativelanguage.googleapis.com/v1beta/openai/'       // 通义千问API
 ];
 
 // 创建OpenAI客户端
@@ -193,8 +193,8 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 
       // 使用OpenAI SDK发送请求
       const response = await openai.chat.completions.create({
-        model: 'gemini-2.0-flash', // 通义千问模型
-        //model: 'qwen-plus', // 通义千问模型
+        //model: 'gemini-2.0-flash', // 通义千问模型
+        model: 'qwen-plus', // 通义千问模型
         messages: [
           {
             role: 'system',
@@ -921,20 +921,45 @@ export async function evaluateVideoPresentation(
     // 解析响应结果
     const parsedResult = extractJsonFromMarkdownGemini(responseText);
     
-    if (!parsedResult) {
-      throw new Error('无法解析视频评估结果');
+    if (parsedResult) {
+      // 解析成功
+      logWithTime('视频评估完成');
+      
+      return {
+        videoRawContent: {
+          presentationScore: parsedResult.presentationScore || 0,
+          summary: parsedResult.summary || '',
+          codeVideoAlignment: parsedResult.codeVideoAlignment || [],
+          overallFeedback: parsedResult.overallFeedback || ''
+        }
+      };
+    } else {
+      // 解析失败，但仍返回一致的结构
+      logWithTime('无法解析视频评估结果为JSON，将构造兼容结构');
+      
+      // 提取响应文本的前500个字符作为摘要
+      const shortSummary = responseText.length > 500 
+        ? responseText.substring(0, 500) + '...(内容已截断)' 
+        : responseText;
+      
+      return {
+        videoRawContent: {
+          presentationScore: 0.5, // 默认中等评分
+          summary: '[解析失败] 原始响应:\n' + shortSummary,
+          codeVideoAlignment: [
+            {
+              aspect: "解析状态",
+              aligned: false,
+              details: "无法将API响应解析为JSON格式。请查看summary字段获取原始响应内容。"
+            }
+          ],
+          overallFeedback: "⚠️ 视频评估结果解析失败。系统已返回默认结构，但内容可能不准确。请联系管理员检查API响应格式。",
+          // 保留原始文本供参考
+          _originalText: responseText,
+          _isJsonFormat: false
+        }
+      };
     }
-    
-    logWithTime('视频评估完成');
-    
-    return {
-      videoRawContent: {
-        presentationScore: parsedResult.presentationScore || 0,
-        summary: parsedResult.summary || '',
-        codeVideoAlignment: parsedResult.codeVideoAlignment || [],
-        overallFeedback: parsedResult.overallFeedback || ''
-      }
-    };
   } catch (error) {
     logError('视频评估失败', error);
     throw new Error(`视频评估失败: ${(error as Error).message}`);
