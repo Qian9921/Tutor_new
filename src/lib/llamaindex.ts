@@ -1,5 +1,5 @@
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
-import { getRepositoryFiles, parseGitHubUrl } from './github';
+import { getRepositoryFiles, parseGitHubUrl, getRepoLatestUpdateTime, clearRepoCache } from './github';
 
 // 添加时间戳的日志函数
 function logWithTime(message: string, data?: unknown) {
@@ -21,6 +21,17 @@ function logError(message: string, error: unknown) {
 interface ProcessResult {
   repoSummary: string;
   relevantFiles: Array<{path: string; content: string; relevance: number}>;
+}
+
+// 定义缓存数据类型
+interface CacheData {
+  owner?: string;
+  repo?: string;
+  summary?: string;
+  files?: Array<{path: string; content: string}>;
+  createdAt?: Date | {toDate(): Date} | string;
+  updatedAt?: Date | {toDate(): Date} | string;
+  [key: string]: unknown;
 }
 
 /**
@@ -50,30 +61,171 @@ export async function processGitHubRepository(
     const cacheRef = db.collection(COLLECTIONS.GITHUB_REPOS).doc(cacheId);
     const cacheDoc = await cacheRef.get();
     
-    // 如果有缓存，使用缓存数据
+    // 如果有缓存，检查仓库是否有更新
     if (cacheDoc.exists) {
-      logWithTime('找到仓库缓存，使用缓存数据');
-      const cacheData = cacheDoc.data();
+      logWithTime('找到仓库缓存，检查仓库是否有更新');
+      const cacheData = cacheDoc.data() as CacheData || {};
       
-      // 确保files是一个数组
-      const files = Array.isArray(cacheData?.files) ? cacheData.files : [];
+      // 获取缓存更新时间，兼容不同格式
+      let cacheUpdateTime: Date;
       
-      // 生成与当前任务相关的文件列表
-      const relevantFiles = getRelevantFilesForTask(
-        files,
-        currentTask,
-        tasks,
-        projectDetail,
-        evidence,
-      );
+      // 处理可能的updatedAt格式
+      const updatedAt = cacheData.updatedAt;
+      if (updatedAt) {
+        if (typeof updatedAt === 'object' && updatedAt !== null && 'toDate' in updatedAt && typeof updatedAt.toDate === 'function') {
+          // Firestore Timestamp
+          cacheUpdateTime = updatedAt.toDate();
+        } else if (updatedAt instanceof Date) {
+          // JavaScript Date
+          cacheUpdateTime = updatedAt;
+        } else {
+          // 字符串或其他格式
+          try {
+            cacheUpdateTime = new Date(String(updatedAt));
+          } catch (error) {
+            // 如果转换失败，设为很久以前
+            console.log('日期转换失败:', error);
+            cacheUpdateTime = new Date(0);
+          }
+        }
+      } else {
+        // 没有更新时间，设为很久以前
+        cacheUpdateTime = new Date(0);
+      }
       
-      // 确保summary是一个字符串
-      const summary = typeof cacheData?.summary === 'string' ? cacheData.summary : '';
+      // 计算缓存年龄（小时）
+      const cacheAgeHours = (Date.now() - cacheUpdateTime.getTime()) / (1000 * 60 * 60);
       
-      return {
-        repoSummary: summary || createMockRepoSummary(owner, repo),
-        relevantFiles
-      };
+      // 如果缓存超过24小时，强制刷新
+      const shouldForceRefresh = cacheAgeHours > 24;
+      
+      if (shouldForceRefresh) {
+        logWithTime('缓存已超过24小时，强制刷新');
+        
+        // 清除内存缓存
+        clearRepoCache(owner, repo);
+        
+        // 获取仓库文件
+        const files = await getRepoFiles(owner, repo);
+        
+        // 生成仓库摘要
+        const repoSummary = createMockRepoSummary(owner, repo);
+        
+        // 更新缓存
+        await cacheRef.set({
+          owner,
+          repo,
+          summary: repoSummary,
+          files,
+          updatedAt: new Date()
+        });
+        
+        logWithTime('仓库缓存已强制刷新');
+        
+        // 生成与当前任务相关的文件列表
+        const relevantFiles = getRelevantFilesForTask(
+          files,
+          currentTask,
+          tasks,
+          projectDetail,
+          evidence
+        );
+        
+        return {
+          repoSummary,
+          relevantFiles
+        };
+      }
+      
+      try {
+        // 获取仓库最新更新时间
+        const latestUpdateTime = await getRepoLatestUpdateTime(owner, repo);
+        
+        // 如果仓库有更新，重新获取数据
+        if (latestUpdateTime > cacheUpdateTime) {
+          logWithTime('仓库有更新，重新获取数据');
+          
+          // 清除内存缓存
+          clearRepoCache(owner, repo);
+          
+          // 获取仓库文件
+          const files = await getRepoFiles(owner, repo);
+          
+          // 生成仓库摘要
+          const repoSummary = createMockRepoSummary(owner, repo);
+          
+          // 更新缓存
+          await cacheRef.set({
+            owner,
+            repo,
+            summary: repoSummary,
+            files,
+            updatedAt: new Date()
+          });
+          
+          logWithTime('仓库缓存已更新');
+          
+          // 生成与当前任务相关的文件列表
+          const relevantFiles = getRelevantFilesForTask(
+            files,
+            currentTask,
+            tasks,
+            projectDetail,
+            evidence
+          );
+          
+          return {
+            repoSummary,
+            relevantFiles
+          };
+        }
+        
+        // 仓库没有更新，使用缓存数据
+        logWithTime('仓库没有更新，使用缓存数据');
+        
+        // 确保files是一个数组
+        const files = Array.isArray(cacheData?.files) ? cacheData.files : [];
+        
+        // 生成与当前任务相关的文件列表
+        const relevantFiles = getRelevantFilesForTask(
+          files,
+          currentTask,
+          tasks,
+          projectDetail,
+          evidence,
+        );
+        
+        // 确保summary是一个字符串
+        const summary = typeof cacheData?.summary === 'string' ? cacheData.summary : '';
+        
+        return {
+          repoSummary: summary || createMockRepoSummary(owner, repo),
+          relevantFiles
+        };
+      } catch (error) {
+        // 如果获取仓库更新时间失败，记录错误并使用缓存数据
+        logError('获取仓库更新时间失败，使用缓存数据', error);
+        
+        // 确保files是一个数组
+        const files = Array.isArray(cacheData?.files) ? cacheData.files : [];
+        
+        // 生成与当前任务相关的文件列表
+        const relevantFiles = getRelevantFilesForTask(
+          files,
+          currentTask,
+          tasks,
+          projectDetail,
+          evidence,
+        );
+        
+        // 确保summary是一个字符串
+        const summary = typeof cacheData?.summary === 'string' ? cacheData.summary : '';
+        
+        return {
+          repoSummary: summary || createMockRepoSummary(owner, repo),
+          relevantFiles
+        };
+      }
     }
     
     // 无缓存，获取仓库文件

@@ -63,12 +63,21 @@ const octokit = new Octokit({
 });
 
 // 创建缓存实例，设置1小时过期
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const repoCache = new NodeCache({ 
   stdTTL: 3600, // 1小时缓存
   checkperiod: 600, // 10分钟检查一次过期
   maxKeys: 100 // 最多缓存100个仓库
 });
+
+// 生成缓存键
+function generateCacheKey(owner: string, repo: string, path: string = ''): string {
+  return `${owner}:${repo}:${path}`;
+}
+
+// 生成仓库信息缓存键
+function generateRepoInfoCacheKey(owner: string, repo: string): string {
+  return `info:${owner}:${repo}`;
+}
 
 // 为GitHub API响应定义接口
 interface GitHubContentItem {
@@ -86,6 +95,16 @@ export async function getRepositoryFiles(
 ): Promise<Array<{name: string; path: string; type: string; content?: string}>> {
   logWithTime(`获取仓库文件: ${owner}/${repo}, 路径: ${path || '根目录'}`);
   
+  // 生成缓存键
+  const cacheKey = generateCacheKey(owner, repo, path);
+  
+  // 检查内存缓存
+  const cachedFiles = repoCache.get<Array<{name: string; path: string; type: string; content?: string}>>(cacheKey);
+  if (cachedFiles) {
+    logWithTime(`从内存缓存获取到仓库文件: ${owner}/${repo}, 路径: ${path || '根目录'}`);
+    return cachedFiles;
+  }
+  
   try {
     const response = await octokit.repos.getContent({
       owner,
@@ -93,11 +112,13 @@ export async function getRepositoryFiles(
       path,
     });
     
+    let result: Array<{name: string; path: string; type: string; content?: string}>;
+    
     // 处理单文件或目录内容
     if (!Array.isArray(response.data)) {
       // 这是单个文件，是正常情况
       logWithTime(`获取到单个文件: ${owner}/${repo}/${path}`);
-      return [
+      result = [
         {
           name: response.data.name,
           path: response.data.path,
@@ -106,17 +127,22 @@ export async function getRepositoryFiles(
             cleanContent(Buffer.from(response.data.content, 'base64').toString(), response.data.path) : undefined,
         },
       ];
+    } else {
+      logWithTime(`获取到${response.data.length}个文件/目录`);
+      result = response.data.map((item: GitHubContentItem) => ({
+        name: item.name,
+        path: item.path,
+        type: item.type,
+        // 仅当是文件且请求了单个文件时才会有content
+        content: 'content' in item && item.content ? 
+          cleanContent(Buffer.from(item.content, 'base64').toString(), item.path) : undefined,
+      }));
     }
     
-    logWithTime(`获取到${response.data.length}个文件/目录`);
-    return response.data.map((item: GitHubContentItem) => ({
-      name: item.name,
-      path: item.path,
-      type: item.type,
-      // 仅当是文件且请求了单个文件时才会有content
-      content: 'content' in item && item.content ? 
-        cleanContent(Buffer.from(item.content, 'base64').toString(), item.path) : undefined,
-    }));
+    // 存入内存缓存
+    repoCache.set(cacheKey, result);
+    
+    return result;
   } catch (error) {
     logError(`获取仓库文件失败: ${owner}/${repo}/${path}`, error);
     throw new Error(`获取GitHub仓库文件失败: ${(error as Error).message}`);
@@ -130,6 +156,16 @@ export async function getFileContent(
   path: string
 ): Promise<string> {
   logWithTime(`获取文件内容: ${owner}/${repo}/${path}`);
+  
+  // 生成缓存键
+  const cacheKey = generateCacheKey(owner, repo, path);
+  
+  // 检查内存缓存
+  const cachedFiles = repoCache.get<Array<{name: string; path: string; type: string; content?: string}>>(cacheKey);
+  if (cachedFiles && cachedFiles.length === 1 && cachedFiles[0].content) {
+    logWithTime(`从内存缓存获取到文件内容: ${owner}/${repo}/${path}`);
+    return cachedFiles[0].content;
+  }
   
   try {
     const response = await octokit.repos.getContent({
@@ -146,6 +182,14 @@ export async function getFileContent(
     const content = cleanContent(Buffer.from(response.data.content, 'base64').toString(), path);
     logWithTime(`获取文件内容成功: ${path} (${content.length} 字符)`);
     
+    // 存入内存缓存
+    repoCache.set(cacheKey, [{
+      name: response.data.name,
+      path: response.data.path,
+      type: 'file',
+      content: content
+    }]);
+    
     return content;
   } catch (error) {
     logError(`获取文件内容失败: ${owner}/${repo}/${path}`, error);
@@ -153,11 +197,69 @@ export async function getFileContent(
   }
 }
 
+// 获取仓库最新更新时间
+export async function getRepoLatestUpdateTime(
+  owner: string,
+  repo: string
+): Promise<Date> {
+  logWithTime(`获取仓库最新更新时间: ${owner}/${repo}`);
+  
+  // 生成缓存键
+  const cacheKey = generateRepoInfoCacheKey(owner, repo);
+  
+  // 检查内存缓存
+  const cachedInfo = repoCache.get<{updatedAt: Date}>(cacheKey);
+  if (cachedInfo && cachedInfo.updatedAt) {
+    logWithTime(`从内存缓存获取到仓库更新时间: ${owner}/${repo} - ${cachedInfo.updatedAt.toISOString()}`);
+    return cachedInfo.updatedAt;
+  }
+  
+  try {
+    const response = await octokit.repos.get({
+      owner,
+      repo,
+    });
+    
+    const updatedAt = new Date(response.data.updated_at);
+    logWithTime(`仓库最新更新时间: ${updatedAt.toISOString()}`);
+    
+    // 存入内存缓存
+    repoCache.set(cacheKey, { updatedAt });
+    
+    return updatedAt;
+  } catch (error) {
+    logError(`获取仓库最新更新时间失败: ${owner}/${repo}`, error);
+    throw new Error(`获取仓库最新更新时间失败: ${(error as Error).message}`);
+  }
+}
+
+// 清除仓库的所有缓存
+export function clearRepoCache(owner: string, repo: string): void {
+  logWithTime(`清除仓库缓存: ${owner}/${repo}`);
+  
+  // 获取所有缓存键
+  const allKeys = repoCache.keys();
+  
+  // 筛选并删除相关的缓存
+  const repoPrefix = `${owner}:${repo}:`;
+  const repoInfoKey = generateRepoInfoCacheKey(owner, repo);
+  
+  allKeys.forEach(key => {
+    if (key.startsWith(repoPrefix) || key === repoInfoKey) {
+      repoCache.del(key);
+    }
+  });
+  
+  logWithTime(`仓库缓存已清除: ${owner}/${repo}`);
+}
+
 // 创建导出对象
 const githubApi = {
   parseGitHubUrl,
   getRepositoryFiles,
   getFileContent,
+  getRepoLatestUpdateTime,
+  clearRepoCache,
 };
 
 export default githubApi; 
