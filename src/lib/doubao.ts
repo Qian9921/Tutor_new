@@ -198,49 +198,49 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
         messages: [
           {
             role: 'system',
-            content: `你是一位代码评估专家，请根据以下信息评估GitHub仓库的代码完成度：
+            content: `You are a code assessment expert. Please evaluate the completion level of a GitHub repository code based on the following information:
 
-【评估步骤】
-1. 仔细阅读所有信息：项目详情(projectDetail)、任务列表(tasks)、当前任务(currentTask)和完成标准(evidence)
-2. 重点查看代码文件(relevantFiles)，检查是否满足evidence中列出的所有完成标准
-3. 对照evidence中的每个检查点，逐一评估代码实现情况
-4. 根据评估结果计算0-1之间的完成度评分
-5. 提供分析和改进建议
-6. 尽可能多的在适当的位置使用适合的emoji来增加生动性，吸引用户的关注，让内容显得活泼生动
-7. 至少在回答里用10个emoji，并且json格式可以识别
-8. emoji不要瞎用，用在合适的地方，并且种类丰富一点
+【Assessment Steps】
+1. Carefully read all information: project details (projectDetail), task list (tasks), current task (currentTask), and completion criteria (evidence)
+2. Focus on reviewing code files (relevantFiles) to check if they meet all completion criteria listed in evidence
+3. Compare each checkpoint in evidence and evaluate the code implementation status
+4. Calculate a completion score between 0-1 based on your evaluation
+5. Provide analysis and improvement suggestions
+6. Use appropriate emojis generously in suitable places to enhance readability, attract user attention, and make the content lively
+7. Include at least 10 emojis in your response while maintaining valid JSON format
+8. Don't use emojis randomly - place them appropriately and use a variety of types
 
-【评分标准】
-- 1.0: 完美实现所有evidence中的要求，代码质量高
-- 0.8: 实现了大部分要求，可能有小问题
-- 0.6: 基本功能已实现，但存在明显缺陷
-- 0.4: 部分功能实现，多数要求未满足
-- 0.2: 少量功能实现，大部分要求未满足
-- 0.0: 几乎没有实现evidence中的要求
+【Scoring Criteria】
+- 1.0: Perfect implementation of all requirements in evidence, high code quality
+- 0.8: Implemented most requirements, may have minor issues
+- 0.6: Basic functionality implemented, but with notable deficiencies
+- 0.4: Partial functionality implemented, most requirements not met
+- 0.2: Limited functionality implemented, majority of requirements not met
+- 0.0: Almost none of the requirements in evidence implemented
 
-【输出格式】
-请提供JSON格式的评估结果：
+【Output Format】
+Please provide the assessment result in JSON format:
 {
-  "assessment": 0.xx, // 完成度评分(0-1之间的小数，保留两位)
+  "assessment": 0.xx, // Completion score (decimal between 0-1, two decimal places)
   "checkpoints": [
-    {"requirement": "检查点1", "status": "已完成", "details": "实现分析..."},
-    {"requirement": "检查点2", "status": "未完成", "details": "缺失原因..."},
-    {"requirement": "检查点3", "status": "部分完成", "details": "问题分析..."}
-  ], // 检查点要包含evidence里所有的检查点
-  "summary": "总体代码评估，包含至少6个关键点",
+    {"requirement": "Checkpoint 1", "status": "Completed", "details": "Implementation analysis..."},
+    {"requirement": "Checkpoint 2", "status": "Not completed", "details": "Missing reason..."},
+    {"requirement": "Checkpoint 3", "status": "Partially completed", "details": "Problem analysis..."}
+  ], // Checkpoints must include all checkpoints from evidence
+  "summary": "Overall code assessment, including at least 6 key points",
   "improvements": [
-    "改进建议1：请详细说明如何实现X功能，包括需要修改的文件和具体代码示例",
-    "改进建议2：请分三步解释如何解决Y问题，并给出完整实现思路"
-  ] // 改进建议越多越详细越好，但不要偏离evidence里的要求
+    "Improvement 1: Please explain in detail how to implement feature X, including files to modify and specific code examples",
+    "Improvement 2: Please explain in three steps how to solve problem Y, and provide complete implementation ideas"
+  ] // More detailed improvement suggestions are better, but don't deviate from requirements in evidence
 }
 
-注意：
-- evidence是评估的核心标准，必须严格按照其中的每个检查点评估
-- 改进建议必须具体、可执行，包含明确的操作指令
-- 所有分析必须基于提供的代码文件和项目上下文
-- 评分必须客观公正，与检查点完成情况一致
-- 评估结果必须包含至少10个emoji
-- 评估结果必须使用json格式
+Note:
+- Evidence is the core standard for assessment, must strictly evaluate according to each checkpoint
+- Improvement suggestions must be specific, actionable, and contain clear operational instructions
+- All analysis must be based on provided code files and project context
+- Scoring must be objective and consistent with checkpoint completion status
+- Assessment result must include at least 10 emojis
+- Assessment result must use JSON format
 `
           },
           {
@@ -329,15 +329,15 @@ function getMockEvaluationResult(): CodeEvaluationResult {
     rawContent: {
       assessment: 0.68,
       checkpoints: [
-        {requirement: "用户登录功能", status: "✅ 已完成", details: "登录功能正常工作"},
-        {requirement: "密码重置功能", status: "❌ 未完成", details: "缺少密码重置流程"},
-        {requirement: "安全防护机制", status: "⚠️ 部分完成", details: "缺少验证码防爆破保护"}
+        {requirement: "User login functionality", status: "✅ Completed", details: "Login functionality works correctly"},
+        {requirement: "Password reset functionality", status: "❌ Not completed", details: "Missing password reset process"},
+        {requirement: "Security protection mechanisms", status: "⚠️ Partially completed", details: "Missing CAPTCHA protection against brute force attacks"}
       ],
-      summary: "✅登录流程完整 | ✅UI交互友好 | ❌缺少密码重置 | ❌没有记住登录状态 | ⚠️无验证码防爆破 | ⚠️密码强度检测不足",
+      summary: "✅Complete login process | ✅User-friendly UI | ❌Missing password reset | ❌No remembered login state | ⚠️No CAPTCHA for brute force protection | ⚠️Insufficient password strength detection",
       improvements: [
-        "改进建议1：请详细说明如何实现短信验证码登录功能，包括需要修改的文件和具体代码示例",
-        "改进建议2：请分三步解释如何添加密码重置功能，并给出完整实现思路和代码示例",
-        "改进建议3：请提供5种防止暴力破解登录的方案"
+        "Improvement 1: Please explain in detail how to implement SMS verification code login functionality, including files to modify and specific code examples",
+        "Improvement 2: Please explain in three steps how to add password reset functionality, and provide complete implementation ideas and code examples",
+        "Improvement 3: Please provide 5 approaches to prevent brute force login attacks"
       ]
     }
   };
@@ -543,55 +543,55 @@ function createBatchPrompt(
   isLastBatch: boolean
 ): string {
   if (batchNumber === 1) {
-    // 第一个批次
-    return `这是代码评估的第 1/${totalBatches} 批次。
-请首先阅读并理解下面的代码文件内容，之后的批次中会提供更多文件。
-请分析这些文件的结构、功能和实现方式，但暂时不要进行最终评估或打分。
-请记住您看到的内容，稍后的批次将需要您利用这些信息。`;
+    // First batch
+    return `This is batch 1/${totalBatches} of the code assessment.
+Please first read and understand the content of the code files below. More files will be provided in later batches.
+Analyze the structure, functionality, and implementation of these files, but do not perform final evaluation or scoring yet.
+Remember what you see, as later batches will require you to use this information.`;
   } else if (isLastBatch) {
-    // 最后一个批次
+    // Last batch
     let previousFiles = '';
     if (context.processedFiles && context.processedFiles.length > 0) {
-      previousFiles = `\n\n## 您在之前的批次中已分析过的文件：
+      previousFiles = `\n\n## Files you have analyzed in previous batches:
 ${context.processedFiles.map(path => `- ${path}`).join('\n')}`;
     }
     
     let insights = '';
     if (context.keyInsights && context.keyInsights.length > 0) {
-      insights = `\n\n## 您在之前批次中发现的主要代码特点：
+      insights = `\n\n## Key code characteristics you discovered in previous batches:
 ${context.keyInsights.map((insight, i) => `${i+1}. ${insight}`).join('\n')}`;
     }
     
-    return `## 这是代码评估的最后一个批次（${batchNumber}/${totalBatches}）
+    return `## This is the final batch of code assessment (${batchNumber}/${totalBatches})
 
-您现在需要完成两项任务：
-1. 分析本批次中的代码文件
-2. 综合所有批次（包括之前批次和当前批次）的所有文件，进行全面评估
+You now need to complete two tasks:
+1. Analyze the code files in this batch
+2. Perform a comprehensive evaluation incorporating all files from all batches (previous and current)
 
-请特别注意：您的评估必须基于所有已查看过的文件，而不仅仅是当前批次的文件。
-您之前看过的文件同样重要，必须纳入最终评估。${previousFiles}${insights}
+Please note: Your assessment must be based on all the files you have reviewed, not just the files in the current batch.
+Files you have seen previously are equally important and must be included in your final assessment.${previousFiles}${insights}
 
-请在分析完本批次代码后，对照评估标准进行全面评估，提供详细报告和评分。`;
+After analyzing the code in this batch, please conduct a thorough evaluation against the assessment criteria, providing a detailed report and score.`;
   } else {
-    // 中间批次
+    // Middle batch
     let previousFiles = '';
     if (context.processedFiles && context.processedFiles.length > 0) {
-      previousFiles = `\n\n您之前批次已分析过的文件：
+      previousFiles = `\n\nFiles you have analyzed in previous batches:
 ${context.processedFiles.map(path => `- ${path}`).join('\n')}`;
     }
     
     let insights = '';
     if (context.keyInsights && context.keyInsights.length > 0) {
-      insights = `\n\n您之前批次发现的主要代码特点：
+      insights = `\n\nKey code characteristics you discovered in previous batches:
 ${context.keyInsights.map((insight, i) => `${i+1}. ${insight}`).join('\n')}`;
     }
     
-    return `## 这是代码评估的第 ${batchNumber}/${totalBatches} 批次
+    return `## This is batch ${batchNumber}/${totalBatches} of the code assessment
 
-请继续分析下面的代码文件，但暂时不要进行最终评估或打分。
-您已经在之前批次分析了 ${context.processedFiles.length} 个文件，现在将继续分析更多文件。${previousFiles}${insights}
+Please continue analyzing the code files below, but do not perform final evaluation or scoring yet.
+You have already analyzed ${context.processedFiles.length} files in previous batches and will now analyze more files.${previousFiles}${insights}
 
-请记住您在本批次看到的内容，并与之前批次的分析进行关联。最后一个批次将要求您对所有文件进行综合评估。`;
+Remember what you see in this batch and relate it to your previous batch analyses. The final batch will ask you to evaluate all files comprehensively.`;
   }
 }
 
@@ -600,13 +600,13 @@ ${context.keyInsights.map((insight, i) => `${i+1}. ${insight}`).join('\n')}`;
  */
 export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promise<CodeEvaluationResult> {
   const startTime = Date.now();
-  logWithTime('开始批处理代码评估');
-  logWithTime(`项目: ${params.projectDetail.substring(0, 100)}...`);
-  logWithTime(`总文件数: ${params.relevantFiles.length}`);
+  logWithTime('Starting batch code evaluation');
+  logWithTime(`Project: ${params.projectDetail.substring(0, 100)}...`);
+  logWithTime(`Total files: ${params.relevantFiles.length}`);
   
   // 模拟数据快速返回
   if (shouldUseMockData()) {
-    logWithTime('配置为使用模拟数据，跳过批处理');
+    logWithTime('Configured to use mock data, skipping batch processing');
     return getMockEvaluationResult();
   }
   
@@ -615,18 +615,18 @@ export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promi
   
   // 创建批次
   const allFiles = [...params.relevantFiles];
-  logWithTime(`准备分批，文件总数: ${allFiles.length}`);
+  logWithTime(`Preparing batches, total files: ${allFiles.length}`);
   
   // 使用智能分批算法
   const batches = createSmartFileBatches(allFiles, MAX_BATCH_CHARS);
   
   // 如果只有一个批次，直接评估
   if (batches.length === 1) {
-    logWithTime('只有一个批次，直接使用标准评估');
+    logWithTime('Only one batch, using standard evaluation');
     return evaluateCode(params);
   }
   
-  logWithTime(`文件已分为 ${batches.length} 批处理`);
+  logWithTime(`Files divided into ${batches.length} batches`);
   
   // 初始化上下文
   const context: BatchContext = {
@@ -643,7 +643,7 @@ export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promi
     const batch = batches[i];
     const batchNumber = i + 1;
     
-    logWithTime(`处理批次 ${batchNumber}/${batches.length}, 包含 ${batch.length} 个文件`);
+    logWithTime(`Processing batch ${batchNumber}/${batches.length}, containing ${batch.length} files`);
     
     try {
       // 为当前批次创建上下文提示
@@ -663,26 +663,26 @@ export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promi
       
       // 根据批次类型使用不同的系统提示
       if (!isLastBatch) {
-        // 非最后批次：分析模式
-        batchParams.currentTask = `[批次${batchNumber}/${batches.length}] ${params.currentTask} - 分析模式`;
+        // Non-final batch: analysis mode
+        batchParams.currentTask = `[Batch ${batchNumber}/${batches.length}] ${params.currentTask} - Analysis mode`;
       } else {
-        // 最后批次：评估模式
-        batchParams.currentTask = `[批次${batchNumber}/${batches.length}] ${params.currentTask} - 综合评估`;
+        // Final batch: evaluation mode
+        batchParams.currentTask = `[Batch ${batchNumber}/${batches.length}] ${params.currentTask} - Comprehensive evaluation`;
       }
       
-      // 修改system prompt以确保连贯性
+      // Modify system prompt to ensure continuity
       batchParams.repoSummary = isLastBatch
-        ? `${params.repoSummary}\n\n[最终批次] 请基于所有批次文件进行综合评估。`
-        : `${params.repoSummary}\n\n[批次 ${batchNumber}/${batches.length}] 请分析这些文件，记住内容，但不要最终评估。`;
+        ? `${params.repoSummary}\n\n[Final batch] Please provide a comprehensive evaluation based on all batch files.`
+        : `${params.repoSummary}\n\n[Batch ${batchNumber}/${batches.length}] Please analyze these files, remember the content, but do not provide final evaluation.`;
       
       // 评估当前批次
-      logWithTime(`开始评估批次 ${batchNumber}/${batches.length}`);
+      logWithTime(`Starting evaluation of batch ${batchNumber}/${batches.length}`);
       const batchStartTime = Date.now();
       
       const batchResult = await evaluateCode(batchParams);
       
       const batchDuration = Date.now() - batchStartTime;
-      logWithTime(`批次 ${batchNumber}/${batches.length} 评估完成，耗时 ${batchDuration}ms`);
+      logWithTime(`Batch ${batchNumber}/${batches.length} evaluation completed, took ${batchDuration}ms`);
       
       // 收集处理过的文件路径
       context.processedFiles.push(...batch.map(file => file.path));
@@ -732,7 +732,7 @@ export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promi
             context.keyInsights = context.keyInsights.slice(0, 5);
           }
         } catch (error) {
-          logError('提取批次见解失败', error);
+          logError('Failed to extract batch insights', error);
           // 继续处理，这不是致命错误
         }
       }
@@ -760,48 +760,48 @@ export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promi
           
           // 创建汇总请求
           if (batchAnalyses.length > 1) {
-            logWithTime(`执行批次汇总分析...`);
+            logWithTime(`Performing batch summary analysis...`);
             
             // 构建汇总提示
-            const summaryPrompt = `请根据以下所有批次的代码分析结果，进行最终的综合评估。这是对所有批次（共${batches.length}批）分析的汇总。
+            const summaryPrompt = `Please provide a comprehensive evaluation based on all batch code analysis results. This is a summary of analysis across all batches (total ${batches.length} batches).
             
-您已经分析了以下所有文件：
+You have analyzed the following files:
 ${context.processedFiles.map(path => `- ${path}`).join('\n')}
 
-每个批次的分析摘要：
+Each batch analysis summary:
 ${batchAnalyses.map(ba => {
   if (!ba) return ''; // 处理可能为null的情况
   return `
---- 批次 ${ba.batch} 分析 ---
-文件: ${ba.files.join(', ')}
-${ba.summary ? `摘要: ${ba.summary}` : ''}
+--- Batch ${ba.batch} Analysis ---
+Files: ${ba.files.join(', ')}
+${ba.summary ? `Summary: ${ba.summary}` : ''}
 `;
 }).join('\n')}
 
-请基于所有这些信息，对照评估标准进行最终综合评估。
-您的评估必须考虑所有批次的所有文件，而不仅是最后一批。`;
+Please conduct a thorough evaluation based on all these information, against the assessment criteria.
+Your assessment must consider all files from all batches, not just the last batch.`;
             
             // 创建汇总请求参数
             const summaryParams: CodeEvaluationParams = {
               ...params,
               projectDetail: params.projectDetail + "\n\n" + summaryPrompt,
               relevantFiles: [], // 不包含代码文件，只包含分析
-              currentTask: `最终综合评估 - 基于${context.processedFiles.length}个文件的分析`,
-              repoSummary: `${params.repoSummary}\n\n[综合评估] 基于所有${batches.length}批次的分析进行最终评估。`
+              currentTask: `Final comprehensive evaluation - Analysis based on ${context.processedFiles.length} files`,
+              repoSummary: `${params.repoSummary}\n\n[Comprehensive evaluation] Based on analysis across all ${batches.length} batches for final assessment.`
             };
             
             // 执行汇总评估
             const summaryStartTime = Date.now();
             const summaryResult = await evaluateCode(summaryParams);
             const summaryDuration = Date.now() - summaryStartTime;
-            logWithTime(`汇总分析完成，耗时 ${summaryDuration}ms`);
+            logWithTime(`Summary analysis completed, took ${summaryDuration}ms`);
             
             // 使用汇总结果替代最后批次结果
             lastResult = summaryResult;
             
             // 返回汇总结果
             const totalDuration = Date.now() - startTime;
-            logWithTime(`批处理评估完成（含汇总），总耗时 ${totalDuration}ms`);
+            logWithTime(`Batch processing evaluation completed (including summary), total took ${totalDuration}ms`);
             return summaryResult;
           }
         } catch (summaryError) {
@@ -810,7 +810,7 @@ ${ba.summary ? `摘要: ${ba.summary}` : ''}
         }
         
         const totalDuration = Date.now() - startTime;
-        logWithTime(`批处理评估完成，总耗时 ${totalDuration}ms`);
+        logWithTime(`Batch processing evaluation completed, total took ${totalDuration}ms`);
         return batchResult;
       }
       
@@ -861,36 +861,39 @@ function createVideoEvaluationPrompt(
   tasks: string[],
   codeEvaluation: CodeEvaluationResult
 ): string {
-  return `请评估以下YouTube视频演示与GitHub代码仓库的契合度：
+  return `Please evaluate the alignment between the following YouTube video demonstration and GitHub code repository:
 
-【项目信息】
+【Project Information】
 ${projectDetail}
 
-【项目任务】
+【Project Tasks】
 ${tasks.map((task, index) => `${index + 1}. ${task}`).join('\n')}
 
-【代码评估结果】
-代码完成度评分: ${codeEvaluation.rawContent?.assessment || 'N/A'}
-代码分析摘要: ${codeEvaluation.rawContent?.summary || 'N/A'}
-关键检查点:
+【Code Assessment Results】
+Code completion score: ${codeEvaluation.rawContent?.assessment || 'N/A'}
+Code analysis summary: ${codeEvaluation.rawContent?.summary || 'N/A'}
+Key checkpoints:
 ${codeEvaluation.rawContent?.checkpoints?.map((cp: any) => `- ${cp.requirement}: ${cp.status}`).join('\n') || 'N/A'}
 
-【评估任务】
-1. 观看视频演示 (${youtubeLink})
-2. 分析视频内容与代码实现的一致性
-3. 评估演讲者对项目的理解和表达能力
-4. 评估视频演示是否覆盖了代码中实现的主要功能
+【Evaluation Tasks】
+1. Watch the video demonstration (${youtubeLink})
+2. Analyze the consistency between video content and code implementation
+3. Evaluate the presenter's understanding and communication of the project
+4. Assess whether the video demonstration covers the main features implemented in the code
 
-请提供以下JSON格式的评估结果：
+Please provide the evaluation results in the following JSON format:
 {
-  "presentationScore": 0.xx, // 演示质量评分(0-1之间)
-  "summary": "视频内容摘要...",
-  "codeVideoAlignment": [
-    {"aspect": "功能A", "aligned": true/false, "details": "详细说明..."},
-    {"aspect": "功能B", "aligned": true/false, "details": "详细说明..."}
-    // 至少分析5个主要方面
+  "presentationScore": 0.xx, // Presentation quality score (between 0-1)
+  "scoreExplanation": "Detailed explanation of why this score was given...",
+  "summary": "Video content summary...",
+  "improvements": [
+    {"area": "Improvement area 1", "suggestion": "Specific suggestion..."},
+    {"area": "Improvement area 2", "suggestion": "Specific suggestion..."},
+    {"area": "Improvement area 3", "suggestion": "Specific suggestion..."},
+    {"area": "Improvement area 4", "suggestion": "Specific suggestion..."},
+    {"area": "Improvement area 5", "suggestion": "Specific suggestion..."}
   ],
-  "overallFeedback": "综合评价和建议..."
+  "overallFeedback": "Comprehensive evaluation and recommendations..."
 }`;
 }
 
@@ -928,8 +931,10 @@ export async function evaluateVideoPresentation(
       return {
         videoRawContent: {
           presentationScore: parsedResult.presentationScore || 0,
+          scoreExplanation: parsedResult.scoreExplanation || '',
           summary: parsedResult.summary || '',
           codeVideoAlignment: parsedResult.codeVideoAlignment || [],
+          improvements: parsedResult.improvements || [],
           overallFeedback: parsedResult.overallFeedback || ''
         }
       };
@@ -939,22 +944,24 @@ export async function evaluateVideoPresentation(
       
       // 提取响应文本的前500个字符作为摘要
       const shortSummary = responseText.length > 500 
-        ? responseText.substring(0, 500) + '...(内容已截断)' 
+        ? responseText.substring(0, 500) + '...(content truncated)' 
         : responseText;
       
       return {
         videoRawContent: {
-          presentationScore: 0.5, // 默认中等评分
-          summary: '[解析失败] 原始响应:\n' + shortSummary,
+          presentationScore: 0.5, // Default medium score
+          scoreExplanation: 'Original response is not in valid JSON format, converted to object',
+          summary: '[Parsing failed] Original response:\n' + shortSummary,
           codeVideoAlignment: [
             {
-              aspect: "解析状态",
+              aspect: "Parsing status",
               aligned: false,
-              details: "无法将API响应解析为JSON格式。请查看summary字段获取原始响应内容。"
+              details: "Unable to parse API response as JSON format. Please check the summary field for original response content."
             }
           ],
-          overallFeedback: "⚠️ 视频评估结果解析失败。系统已返回默认结构，但内容可能不准确。请联系管理员检查API响应格式。",
-          // 保留原始文本供参考
+          improvements: [],
+          overallFeedback: "⚠️ Video evaluation result parsing failed. System has returned default structure, but content may not be accurate. Please contact administrator to check API response format.",
+          // Keep original text for reference
           _originalText: responseText,
           _isJsonFormat: false
         }
@@ -962,6 +969,6 @@ export async function evaluateVideoPresentation(
     }
   } catch (error) {
     logError('视频评估失败', error);
-    throw new Error(`视频评估失败: ${(error as Error).message}`);
+    throw new Error(`Video evaluation failed: ${(error as Error).message}`);
   }
 }
