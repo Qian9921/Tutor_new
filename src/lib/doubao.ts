@@ -211,12 +211,17 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 8. Don't use emojis randomly - place them appropriately and use a variety of types
 
 【Scoring Criteria】
-- 1.0: Perfect implementation of all requirements in evidence, high code quality
-- 0.8: Implemented most requirements, may have minor issues
-- 0.6: Basic functionality implemented, but with notable deficiencies
-- 0.4: Partial functionality implemented, most requirements not met
-- 0.2: Limited functionality implemented, majority of requirements not met
-- 0.0: Almost none of the requirements in evidence implemented
+- 1.0: 100% of requirements in evidence are fully met
+- 0.9: 95-99% of requirements met, with only minor issues
+- 0.8: 85-94% of requirements met, with some minor issues
+- 0.7: 75-84% of requirements met, with several notable issues
+- 0.6: 65-74% of requirements met, with significant deficiencies
+- 0.5: 55-64% of requirements met, basically usable
+- 0.4: 45-54% of requirements met, partially functional
+- 0.3: 35-44% of requirements met, most features have issues
+- 0.2: 25-34% of requirements met, majority have issues
+- 0.1: 10-24% of requirements met, almost all have issues
+- 0.0: Less than 10% of requirements met
 
 【Output Format】
 Please provide the assessment result in JSON format:
@@ -231,7 +236,7 @@ Please provide the assessment result in JSON format:
   "improvements": [
     "Improvement 1: Please explain in detail how to implement feature X, including files to modify and specific code examples",
     "Improvement 2: Please explain in three steps how to solve problem Y, and provide complete implementation ideas"
-  ] // More detailed improvement suggestions are better, but don't deviate from requirements in evidence
+  ] // More detailed improvement suggestions are better, but don't deviate from requirements in evidence, and talk about where, why and how to improve to full score
 }
 
 Note:
