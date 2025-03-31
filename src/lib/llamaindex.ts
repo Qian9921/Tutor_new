@@ -52,8 +52,21 @@ export async function processGitHubRepository(
     // 确保数据库已初始化
     await waitForDatabaseInitialization();
     
+    // 检查URL是否包含强制刷新参数
+    const shouldForceRefresh = githubRepoUrl.includes('?refresh=true') || githubRepoUrl.includes('&refresh=true');
+    
+    // 从URL中移除刷新参数以便正确解析GitHub仓库地址
+    const cleanUrl = githubRepoUrl
+      .replace('?refresh=true', '?')
+      .replace('&refresh=true', '')
+      .replace(/\?$/, ''); // 移除末尾可能留下的问号
+    
+    if (shouldForceRefresh) {
+      logWithTime('检测到强制刷新参数，将跳过缓存');
+    }
+    
     // 解析GitHub URL
-    const { owner, repo } = parseGitHubUrl(githubRepoUrl);
+    const { owner, repo } = parseGitHubUrl(cleanUrl);
     logWithTime(`解析完成: ${owner}/${repo}`);
     
     // 检查缓存中是否有该仓库
@@ -61,8 +74,8 @@ export async function processGitHubRepository(
     const cacheRef = db.collection(COLLECTIONS.GITHUB_REPOS).doc(cacheId);
     const cacheDoc = await cacheRef.get();
     
-    // 如果有缓存，检查仓库是否有更新
-    if (cacheDoc.exists) {
+    // 如果有缓存且不是强制刷新，检查仓库是否有更新
+    if (cacheDoc.exists && !shouldForceRefresh) {
       logWithTime('找到仓库缓存，检查仓库是否有更新');
       const cacheData = cacheDoc.data() as CacheData || {};
       
@@ -97,9 +110,9 @@ export async function processGitHubRepository(
       const cacheAgeHours = (Date.now() - cacheUpdateTime.getTime()) / (1000 * 60 * 60);
       
       // 如果缓存超过24小时，强制刷新
-      const shouldForceRefresh = cacheAgeHours > 24;
+      const shouldRefreshByAge = cacheAgeHours > 24;
       
-      if (shouldForceRefresh) {
+      if (shouldRefreshByAge) {
         logWithTime('缓存已超过24小时，强制刷新');
         
         // 清除内存缓存
@@ -228,8 +241,15 @@ export async function processGitHubRepository(
       }
     }
     
-    // 无缓存，获取仓库文件
-    logWithTime('没有找到缓存，获取仓库文件');
+    // 如果是强制刷新或没有缓存，获取仓库文件
+    // 无论是否有缓存，如果代码执行到这里，就获取仓库文件
+    logWithTime(shouldForceRefresh ? '强制刷新仓库数据' : '没有找到缓存，获取仓库文件');
+    
+    // 清除内存缓存（如果是强制刷新）
+    if (shouldForceRefresh) {
+      clearRepoCache(owner, repo);
+    }
+    
     const files = await getRepoFiles(owner, repo);
     
     // 生成仓库摘要

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 import RecentEvaluations from '@/components/RecentEvaluations';
+import AdminButtons from '@/components/AdminButtons';
 
 export default function Home() {
   return (
@@ -33,6 +34,8 @@ export default function Home() {
               查看历史评估
             </Link>
           </div>
+          
+          <AdminButtons />
         </div>
 
         <div className="w-full bg-white rounded-xl shadow-md overflow-hidden p-6 mb-8">

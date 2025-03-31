@@ -69,6 +69,13 @@ const repoCache = new NodeCache({
   maxKeys: 100 // 最多缓存100个仓库
 });
 
+// 为仓库更新时间创建单独的缓存，设置更短的TTL
+const repoUpdateTimeCache = new NodeCache({ 
+  stdTTL: 300, // 5分钟缓存
+  checkperiod: 60, // 1分钟检查一次过期
+  maxKeys: 100 // 最多缓存100个仓库
+});
+
 // 生成缓存键
 function generateCacheKey(owner: string, repo: string, path: string = ''): string {
   return `${owner}:${repo}:${path}`;
@@ -207,24 +214,44 @@ export async function getRepoLatestUpdateTime(
   // 生成缓存键
   const cacheKey = generateRepoInfoCacheKey(owner, repo);
   
-  // 检查内存缓存
-  const cachedInfo = repoCache.get<{updatedAt: Date}>(cacheKey);
+  // 检查内存缓存 - 使用更新时间专用缓存
+  const cachedInfo = repoUpdateTimeCache.get<{updatedAt: Date}>(cacheKey);
   if (cachedInfo && cachedInfo.updatedAt) {
     logWithTime(`从内存缓存获取到仓库更新时间: ${owner}/${repo} - ${cachedInfo.updatedAt.toISOString()}`);
     return cachedInfo.updatedAt;
   }
   
   try {
-    const response = await octokit.repos.get({
-      owner,
-      repo,
-    });
+    // 并行获取仓库信息和最新提交
+    const [repoResponse, commitsResponse] = await Promise.all([
+      octokit.repos.get({
+        owner,
+        repo,
+      }),
+      octokit.repos.listCommits({
+        owner,
+        repo,
+        per_page: 1, // 只获取最新的提交
+      }),
+    ]);
     
-    const updatedAt = new Date(response.data.updated_at);
-    logWithTime(`仓库最新更新时间: ${updatedAt.toISOString()}`);
+    // 获取仓库更新时间
+    const repoUpdatedAt = new Date(repoResponse.data.updated_at);
+    logWithTime(`仓库API更新时间: ${repoUpdatedAt.toISOString()}`);
     
-    // 存入内存缓存
-    repoCache.set(cacheKey, { updatedAt });
+    // 获取最新提交时间（如果有）
+    let latestCommitDate: Date | null = null;
+    if (commitsResponse.data.length > 0 && commitsResponse.data[0].commit?.committer?.date) {
+      latestCommitDate = new Date(commitsResponse.data[0].commit.committer.date);
+      logWithTime(`最新提交时间: ${latestCommitDate.toISOString()}`);
+    }
+    
+    // 使用最新的时间（仓库更新时间或提交时间）
+    const updatedAt = latestCommitDate && latestCommitDate > repoUpdatedAt ? latestCommitDate : repoUpdatedAt;
+    logWithTime(`确定的最新更新时间: ${updatedAt.toISOString()}`);
+    
+    // 存入内存缓存 - 使用更新时间专用缓存
+    repoUpdateTimeCache.set(cacheKey, { updatedAt });
     
     return updatedAt;
   } catch (error) {
@@ -239,14 +266,23 @@ export function clearRepoCache(owner: string, repo: string): void {
   
   // 获取所有缓存键
   const allKeys = repoCache.keys();
+  const allUpdateTimeKeys = repoUpdateTimeCache.keys();
   
   // 筛选并删除相关的缓存
   const repoPrefix = `${owner}:${repo}:`;
   const repoInfoKey = generateRepoInfoCacheKey(owner, repo);
   
+  // 清除文件缓存
   allKeys.forEach(key => {
     if (key.startsWith(repoPrefix) || key === repoInfoKey) {
       repoCache.del(key);
+    }
+  });
+  
+  // 清除更新时间缓存
+  allUpdateTimeKeys.forEach(key => {
+    if (key === repoInfoKey) {
+      repoUpdateTimeCache.del(key);
     }
   });
   

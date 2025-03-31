@@ -865,4 +865,4 @@ class Timestamp {
 initializationPromise = initializeDatabase();
 
 // 导出接口
-export { db, testDatabaseConnection, Timestamp, waitForDatabaseInitialization }; 
+export { db, pool, testDatabaseConnection, Timestamp, waitForDatabaseInitialization }; 
