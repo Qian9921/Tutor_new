@@ -298,20 +298,100 @@ async function initializeDatabase() {
   return false;
 }
 
+// 检查表是否存在并创建缺失的表
+async function ensureTablesExist(): Promise<boolean> {
+  logWithTime('检查数据库表是否存在...');
+  
+  // 最大重试次数
+  const maxRetries = 3;
+  let retryCount = 0;
+  let lastError = null;
+  
+  while (retryCount < maxRetries) {
+    try {
+      // 测试连接
+      const client = await pool.connect();
+      logWithTime('数据库连接成功');
+      client.release();
+      
+      // 获取所有表名
+      const tableNames = Object.values(COLLECTIONS);
+      
+      // 检查每个表是否存在
+      let allTablesExist = true;
+      
+      for (const tableName of tableNames) {
+        const tableCheck = await pool.query(`
+          SELECT EXISTS (
+            SELECT FROM pg_tables 
+            WHERE tablename = $1
+          )
+        `, [tableName.replace(/^.*\./, '')]);
+        
+        const tableExists = tableCheck.rows[0].exists;
+        
+        if (!tableExists) {
+          allTablesExist = false;
+          logWithTime(`表 ${tableName} 不存在，需要创建`);
+          break;
+        }
+      }
+      
+      // 如果有表不存在，重置初始化状态并重新初始化
+      if (!allTablesExist) {
+        logWithTime('检测到缺失表，重置初始化状态并重新创建表...');
+        databaseInitialized = false;
+        initializationError = null;
+        initializationPromise = null;
+        
+        // 重新初始化数据库表
+        const initResult = await initializeDatabase();
+        return initResult;
+      }
+      
+      logWithTime('所有数据库表都存在且正常');
+      return true;
+    } catch (error) {
+      lastError = error;
+      retryCount++;
+      
+      // 记录重试信息
+      logWithTime(`数据库表检查失败，正在进行第${retryCount}次重试，共${maxRetries}次`);
+      
+      // 如果不是最后一次重试，等待一段时间后再尝试
+      if (retryCount < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
+      }
+    }
+  }
+  
+  // 所有重试都失败
+  logError('数据库表检查失败，达到最大重试次数', lastError);
+  return false;
+}
+
 // 等待数据库初始化完成的函数
 async function waitForDatabaseInitialization(): Promise<boolean> {
+  // 先检查表是否存在
+  const tablesExist = await ensureTablesExist();
+  
+  // 如果表检查失败但没有抛出错误，尝试继续初始化过程
+  if (!tablesExist && !initializationError) {
+    logWithTime('表检查未通过，尝试继续初始化过程');
+  }
+  
   if (databaseInitialized) {
     return true;
   }
-
+  
   if (initializationError) {
     throw initializationError;
   }
-
+  
   if (!initializationPromise) {
     initializationPromise = initializeDatabase();
   }
-
+  
   return await initializationPromise;
 }
 
