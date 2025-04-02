@@ -57,13 +57,7 @@ export interface CodeEvaluationResult {
 
 // 添加视频评估结果接口
 export interface VideoEvaluationResult {
-  videoRawContent?: any;
-  // videoRawContent: {
-  //   presentationScore: number; // 演示评分
-  //   summary: string; // 视频摘要
-  //   codeVideoAlignment: Array<{ aspect: string; aligned: boolean; details: string }>; // 代码与视频的契合点
-  //   overallFeedback: string; // 整体反馈
-  // };
+  videoRawContent?: any; // 保持为 any 类型以避免类型问题
 }
 
 // 判断是否应该使用模拟数据
@@ -867,11 +861,12 @@ function createVideoEvaluationPrompt(
   tasks: string[],
   codeEvaluation: CodeEvaluationResult
 ): string {
-  // Safely access nested properties of codeEvaluation.rawContent
-  const assessmentScore = codeEvaluation.rawContent?.assessment ?? 'N/A';
-  const codeSummary = codeEvaluation.rawContent?.summary ?? 'N/A';
+  // 在这里，我们需要理解 codeEvaluation.rawContent 的结构是基于旧的字段名称
+  // 因此我们使用 codeEvaluation.rawContent?.summary 而不是 overallFeedback
+  const assessmentScore = codeEvaluation?.rawContent?.assessment ?? 'N/A';
+  const codeSummary = codeEvaluation?.rawContent?.summary ?? 'N/A';
   let codeCheckpoints = 'N/A';
-  if (codeEvaluation.rawContent?.checkpoints && Array.isArray(codeEvaluation.rawContent.checkpoints)) {
+  if (codeEvaluation?.rawContent?.checkpoints && Array.isArray(codeEvaluation.rawContent.checkpoints)) {
     codeCheckpoints = codeEvaluation.rawContent.checkpoints
       .map((cp: any) => `- ${cp.requirement || 'Unknown requirement'}: ${cp.status || 'Unknown status'}`)
       .join('\n');
@@ -980,12 +975,12 @@ export async function evaluateVideoPresentation(
       
       return {
         videoRawContent: {
-          presentationScore: parsedResult.presentationScore || 0,
-          scoreExplanation: parsedResult.scoreExplanation || '',
-          summary: parsedResult.summary || '',
-          codeVideoAlignment: parsedResult.codeVideoAlignment || [],
-          improvements: parsedResult.improvements || [],
-          overallFeedback: parsedResult.overallFeedback || ''
+          presentationScore: parsedResult.presentationScore ?? 0,
+          scoreJustification: parsedResult.scoreJustification ?? 'N/A',
+          videoSummary: parsedResult.videoSummary ?? 'N/A',
+          alignmentAnalysis: parsedResult.alignmentAnalysis ?? [],
+          suggestionsForImprovement: parsedResult.suggestionsForImprovement ?? [],
+          overallFeedback: parsedResult.overallFeedback ?? 'N/A'
         }
       };
     } else {
@@ -1000,16 +995,16 @@ export async function evaluateVideoPresentation(
       return {
         videoRawContent: {
           presentationScore: 0.5, // Default medium score
-          scoreExplanation: 'Original response is not in valid JSON format, converted to object',
-          summary: '[Parsing failed] Original response:\n' + shortSummary,
-          codeVideoAlignment: [
+          scoreJustification: 'Original response is not in valid JSON format, converted to object',
+          videoSummary: '[Parsing failed] Original response:\n' + shortSummary,
+          alignmentAnalysis: [
             {
               aspect: "Parsing status",
-              aligned: false,
-              details: "Unable to parse API response as JSON format. Please check the summary field for original response content."
+              status: "Misaligned", // 使用与 prompt 一致的 status 字段
+              details: "Unable to parse API response as JSON format. Please check the videoSummary field for original response content."
             }
           ],
-          improvements: [],
+          suggestionsForImprovement: [],
           overallFeedback: "⚠️ Video evaluation result parsing failed. System has returned default structure, but content may not be accurate. Please contact administrator to check API response format.",
           // Keep original text for reference
           _originalText: responseText,
