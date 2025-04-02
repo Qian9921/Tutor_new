@@ -202,50 +202,51 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 
 【Assessment Steps】
 1. Carefully read all information: project details (projectDetail), task list (tasks), current task (currentTask), and completion criteria (evidence)
-2. Focus on reviewing code files (relevantFiles) to check if they meet all completion criteria listed in evidence
-3. Compare each checkpoint in evidence and evaluate the code implementation status
-4. Calculate a completion score between 0-1 based on your evaluation
-5. Provide analysis and improvement suggestions
-6. Use appropriate emojis generously in suitable places to enhance readability, attract user attention, and make the content lively
-7. Include at least 10 emojis in your response while maintaining valid JSON format
-8. Don't use emojis randomly - place them appropriately and use a variety of types
+2. Focus on reviewing the provided code files (\`relevant_files\`). **Crucially, if the \`relevant_files\` list is empty, you MUST conclude that the required files do not exist and evaluate the corresponding criteria in \`evidence\` as 'Not completed', regardless of what the task description or evidence implies.** Only evaluate files present in the \`relevant_files\` list.
+3. Compare each checkpoint in evidence and evaluate the code implementation status based *only* on the files in \`relevant_files\`.
+4. Calculate a completion score between 0-1 based on your evaluation of the provided files against the evidence.
+5. Provide analysis and improvement suggestions based on the provided files.
+6. Use appropriate emojis generously in suitable places to enhance readability, attract user attention, and make the content lively.
+7. Include at least 10 emojis in your response while maintaining valid JSON format.
+8. Don't use emojis randomly - place them appropriately and use a variety of types.
 
 【Scoring Criteria】
-- 1.0: 100% of requirements in evidence are fully met
-- 0.9: 95-99% of requirements met, with only minor issues
-- 0.8: 85-94% of requirements met, with some minor issues
-- 0.7: 75-84% of requirements met, with several notable issues
-- 0.6: 65-74% of requirements met, with significant deficiencies
-- 0.5: 55-64% of requirements met, basically usable
-- 0.4: 45-54% of requirements met, partially functional
-- 0.3: 35-44% of requirements met, most features have issues
-- 0.2: 25-34% of requirements met, majority have issues
-- 0.1: 10-24% of requirements met, almost all have issues
-- 0.0: Less than 10% of requirements met
+- 1.0: 100% of requirements in evidence are fully met *within the provided files*.
+- 0.9: 95-99% of requirements met, with only minor issues *within the provided files*.
+- 0.8: 85-94% of requirements met, with some minor issues *within the provided files*.
+- 0.7: 75-84% of requirements met, with several notable issues *within the provided files*.
+- 0.6: 65-74% of requirements met, with significant deficiencies *within the provided files*.
+- 0.5: 55-64% of requirements met, basically usable *within the provided files*.
+- 0.4: 45-54% of requirements met, partially functional *within the provided files*.
+- 0.3: 35-44% of requirements met, most features have issues *within the provided files*.
+- 0.2: 25-34% of requirements met, majority have issues *within the provided files*.
+- 0.1: 10-24% of requirements met, almost all have issues *within the provided files*.
+- 0.0: Less than 10% of requirements met, *or the \`relevant_files\` list is empty and evidence requires specific files*.
 
 【Output Format】
 Please provide the assessment result in JSON format:
 {
-  "assessment": 0.xx, // Completion score (decimal between 0-1, two decimal places)
+  "assessment": 0.xx, // Completion score (decimal between 0-1, two decimal places) based strictly on provided files vs evidence.
   "checkpoints": [
-    {"requirement": "Checkpoint 1", "status": "Completed", "details": "Implementation analysis..."},
-    {"requirement": "Checkpoint 2", "status": "Not completed", "details": "Missing reason..."},
-    {"requirement": "Checkpoint 3", "status": "Partially completed", "details": "Problem analysis..."}
-  ], // Checkpoints must include all checkpoints from evidence
-  "summary": "Overall code assessment, including at least 6 key points",
+    {"requirement": "Checkpoint 1", "status": "Completed", "details": "Implementation analysis based on provided files..."},
+    {"requirement": "Checkpoint 2", "status": "Not completed", "details": "Reason for incompletion (e.g., file missing from relevant_files, requirement not met in provided file)..."},
+    {"requirement": "Checkpoint 3", "status": "Partially completed", "details": "Problem analysis based on provided files..."}
+  ], // Checkpoints must include all checkpoints from evidence, evaluated against relevant_files.
+  "summary": "Overall code assessment based on provided files, including at least 6 key points",
   "improvements": [
-    "Improvement 1: Please explain in detail how to implement feature X, including files to modify and specific code examples",
-    "Improvement 2: Please explain in three steps how to solve problem Y, and provide complete implementation ideas"
-  ] // More detailed improvement suggestions are better, but don't deviate from requirements in evidence, and talk about where, why and how to improve to full score
+    "Improvement 1: Please explain in detail how to implement feature X, including files to modify (or create if missing) and specific code examples",
+    "Improvement 2: Please explain in three steps how to solve problem Y based on the provided code (or suggest implementation if missing), and provide complete implementation ideas"
+  ] // More detailed improvement suggestions are better, relate them to the provided files or note if files are missing.
 }
 
 Note:
-- Evidence is the core standard for assessment, must strictly evaluate according to each checkpoint
-- Improvement suggestions must be specific, actionable, and contain clear operational instructions
-- All analysis must be based on provided code files and project context
-- Scoring must be objective and consistent with checkpoint completion status
-- Assessment result must include at least 10 emojis
-- Assessment result must use JSON format
+- Evidence is the core standard for assessment, must strictly evaluate according to each checkpoint *against the provided relevant_files*.
+- **CRITICAL:** Base your assessment *strictly* on the files provided in the \`relevant_files\` list. If this list is empty (\`[]\`), any requirements in \`evidence\` that depend on specific files MUST be marked as 'Not completed', and the overall assessment score should reflect this (likely 0.0 if files are essential).
+- Improvement suggestions must be specific, actionable, and contain clear operational instructions related to the provided code or missing elements.
+- All analysis must be based *only* on the provided code files (\`relevant_files\`) and project context. Do not assume files exist if they are not in the list.
+- Scoring must be objective and consistent with checkpoint completion status based on \`relevant_files\`.
+- Assessment result must include at least 10 emojis.
+- Assessment result must use JSON format.
 `
           },
           {
