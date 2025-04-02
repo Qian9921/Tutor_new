@@ -867,40 +867,84 @@ function createVideoEvaluationPrompt(
   tasks: string[],
   codeEvaluation: CodeEvaluationResult
 ): string {
-  return `Please evaluate the alignment between the following YouTube video demonstration and GitHub code repository:
+  // Safely access nested properties of codeEvaluation.rawContent
+  const assessmentScore = codeEvaluation.rawContent?.assessment ?? 'N/A';
+  const codeSummary = codeEvaluation.rawContent?.summary ?? 'N/A';
+  let codeCheckpoints = 'N/A';
+  if (codeEvaluation.rawContent?.checkpoints && Array.isArray(codeEvaluation.rawContent.checkpoints)) {
+    codeCheckpoints = codeEvaluation.rawContent.checkpoints
+      .map((cp: any) => `- ${cp.requirement || 'Unknown requirement'}: ${cp.status || 'Unknown status'}`)
+      .join('\n');
+  }
 
-【Project Information】
-${projectDetail}
+  return `You are an expert evaluator assessing the alignment between a YouTube video demonstration and a corresponding code project assessment.
 
-【Project Tasks】
-${tasks.map((task, index) => `${index + 1}. ${task}`).join('\n')}
+【Context】
+1.  **Project Details:** ${projectDetail}
+2.  **Project Tasks:**
+${tasks.map((task, index) => `    - Task ${index + 1}: ${task}`).join('\n')}
+3.  **Code Assessment Results (Summary):**
+    - Code Completion Score: ${assessmentScore}
+    - Code Analysis Summary: ${codeSummary}
+    - Key Code Checkpoints Status:
+${codeCheckpoints.split('\n').map(line => `      ${line}`).join('\n')}
+4.  **Video for Review:** ${youtubeLink}
 
-【Code Assessment Results】
-Code completion score: ${codeEvaluation.rawContent?.assessment || 'N/A'}
-Code analysis summary: ${codeEvaluation.rawContent?.summary || 'N/A'}
-Key checkpoints:
-${codeEvaluation.rawContent?.checkpoints?.map((cp: any) => `- ${cp.requirement}: ${cp.status}`).join('\n') || 'N/A'}
+【Assessment Steps】
+1.  **Watch the Video:** Carefully watch the entire video demonstration at the provided YouTube link.
+2.  **Review Code Assessment:** Re-familiarize yourself with the provided 'Code Assessment Results', paying close attention to the completion status of different requirements.
+3.  **Evaluate Accuracy & Clarity:** Assess how accurately the video demonstrates the project features described in 'Project Details' and 'Project Tasks'. Evaluate the clarity and completeness of the presenter's explanation and demonstration.
+4.  **Evaluate Alignment:** Critically evaluate the alignment between the video content and the 'Code Assessment Results'. Does the video accurately reflect the status (Completed, Partially completed, Not completed) of the features as assessed in the code? Does it demonstrate completed features well? Does it acknowledge or misrepresent incomplete aspects?
+5.  **Score the Presentation:** Assign a 'presentationScore' based on the scoring criteria below.
+6.  **Provide Detailed Feedback:** Generate the assessment result in the specified JSON format, providing specific examples from the video to justify your findings.
 
-【Evaluation Tasks】
-1. Watch the video demonstration (${youtubeLink})
-2. Analyze the consistency between video content and code implementation
-3. Evaluate the presenter's understanding and communication of the project
-4. Assess whether the video demonstration covers the main features implemented in the code
+【Scoring Criteria for Video Presentation】
+Score reflects clarity, accuracy, completeness, presenter's knowledge, and alignment with the provided code assessment status.
+- **1.0:** Excellent. Clear, comprehensive, highly accurate demonstration that perfectly aligns with the code assessment status. Presenter is knowledgeable and communicates effectively.
+- **0.8:** Good. Mostly clear and accurate. Minor omissions or slight misalignments with code status (e.g., glossing over a partially complete feature). Good communication.
+- **0.6:** Fair. Some clarity issues or significant omissions. Moderate misalignment with code status (e.g., demonstrating a feature marked as 'Not completed' without acknowledgment, or poor demonstration of completed features). Communication could be better.
+- **0.4:** Poor. Unclear, incomplete presentation with major inaccuracies or misrepresentation of the code's status. Presenter seems unfamiliar with the project.
+- **0.2:** Very Poor. Video is largely irrelevant, fails to demonstrate the project meaningfully, or contains severe misrepresentations.
+- **0.0:** Cannot Evaluate. Video is unavailable, completely unrelated, or provides no basis for assessment.
 
-Please provide the evaluation results in the following JSON format:
+【Output Format】
+Please provide the evaluation results strictly in the following JSON format:
 {
-  "presentationScore": 0.xx, // Presentation quality score (between 0-1)
-  "scoreExplanation": "Detailed explanation of why this score was given...",
-  "summary": "Video content summary...",
-  "improvements": [
-    {"area": "Improvement area 1", "suggestion": "Specific suggestion..."},
-    {"area": "Improvement area 2", "suggestion": "Specific suggestion..."},
-    {"area": "Improvement area 3", "suggestion": "Specific suggestion..."},
-    {"area": "Improvement area 4", "suggestion": "Specific suggestion..."},
-    {"area": "Improvement area 5", "suggestion": "Specific suggestion..."}
+  "presentationScore": 0.xx, // Float between 0.0 and 1.0 based on the scoring criteria.
+  "scoreJustification": "Detailed explanation justifying the presentationScore, citing specific examples from the video and referencing alignment with code assessment status.",
+  "videoSummary": "Concise summary of the key points covered in the video demonstration.",
+  "alignmentAnalysis": [
+    // Add objects for key aspects, comparing video to code assessment.
+    // Example 1: Feature mentioned in tasks/code assessment.
+    // Example 2: Representation of overall completion.
+    {
+      "aspect": "Demonstration of [Specific Feature/Task Requirement]",
+      "status": "Aligned / Partially Aligned / Misaligned / Not Covered", // Choose one
+      "details": "Explanation of how the video aligns or misaligns with the code assessment for this aspect. Mention specific timestamps or observations from the video."
+    },
+    // Add more alignment checkpoints as needed...
+    {
+      "aspect": "Overall Representation of Project Status",
+      "status": "Accurate / Mostly Accurate / Misleading", // Choose one
+      "details": "Does the video give an overall impression consistent with the code assessment score and summary? Explain."
+    }
   ],
-  "overallFeedback": "Comprehensive evaluation and recommendations..."
-}`;
+  "suggestionsForImprovement": [
+    // Provide specific, actionable suggestions for improving the video presentation.
+    // Focus on clarity, accuracy, completeness, and better alignment with code reality.
+    "Suggestion 1: Clearly state the completion status of Feature X based on the code assessment when demonstrating it.",
+    "Suggestion 2: Include a demonstration of [Missing Feature Y mentioned in code assessment] or explicitly state it's not yet implemented.",
+    "Suggestion 3: [Specific suggestion regarding presentation clarity or structure]"
+    // Add more suggestions...
+  ],
+  "overallFeedback": "Concluding remarks on the video presentation quality and its alignment with the project's assessed state."
+}
+
+Note:
+- Base your evaluation *strictly* on comparing the video content against the provided 'Code Assessment Results'.
+- Justify all points in 'alignmentAnalysis' and 'scoreJustification' with specific observations from the video.
+- Ensure the output is valid JSON.
+`;
 }
 
 /**
