@@ -137,28 +137,21 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
   // 处理文件内容，限制长度避免超出token限制
   function processRelevantFiles(files: Array<{ path: string; content: string; relevance: number }>) {
     const MAX_TOTAL_CHARS = 100000; // 保守估计，避免超出模型限制
-    const MAX_FILE_SIZE = 15000;    // 单个文件最大长度
+    //const MAX_FILE_SIZE = 15000;    // 单个文件最大长度
 
     // 优先保留相关性高的文件
     const sortedFiles = [...files].sort((a, b) => b.relevance - a.relevance);
 
     // 截断内容的辅助函数
-    const truncateContent = (content: string, maxLength: number): string => {
-      if (!content || content.length <= maxLength) return content;
-
-      // 保留文件开头和结尾
-      const headSize = Math.floor(maxLength * 0.6);
-      const tailSize = Math.floor(maxLength * 0.4);
-      const head = content.substring(0, headSize);
-      const tail = content.substring(content.length - tailSize);
-
-      return `${head}\n\n... [内容已截断，省略${content.length - headSize - tailSize}字符] ...\n\n${tail}`;
+    const truncateContent = (content: string): string => {
+      // 不再截断内容，直接返回原始内容
+      return content;
     };
 
     // 先截断单个文件
     const processedFiles = sortedFiles.map(file => ({
       path: file.path,
-      content: truncateContent(file.content, MAX_FILE_SIZE),
+      content: truncateContent(file.content),
       relevance: file.relevance
     }));
 
