@@ -60,9 +60,8 @@ export interface VideoEvaluationResult {
   videoRawContent?: any;
   // videoRawContent: {
   //   presentationScore: number; // 演示评分
-  //   summary: string; // 视频摘要
-  //   codeVideoAlignment: Array<{ aspect: string; aligned: boolean; details: string }>; // 代码与视频的契合点
-  //   overallFeedback: string; // 整体反馈
+  //   scoreExplanation: string; // 评分解释
+  //   summary: string; // 视频内容总结和反馈
   // };
 }
 
@@ -875,9 +874,8 @@ function createVideoEvaluationPrompt(
   youtubeLink: string,
   projectDetail: string,
   tasks: string[],
-  codeEvaluation: CodeEvaluationResult
 ): string {
-  return `Please evaluate the alignment between the following YouTube video demonstration and GitHub code repository:
+  return `Conduct a comprehensive multi-dimensional assessment of the following YouTube video presentation with project & tasks information:
 
 【Project Information】
 ${projectDetail}
@@ -885,32 +883,63 @@ ${projectDetail}
 【Project Tasks】
 ${tasks.map((task, index) => `${index + 1}. ${task}`).join('\n')}
 
-【Code Assessment Results】
-Code completion score: ${codeEvaluation.rawContent?.assessment || 'N/A'}
-Code analysis summary: ${codeEvaluation.rawContent?.summary || 'N/A'}
-Key checkpoints:
-${codeEvaluation.rawContent?.checkpoints?.map((cp: any) => `- ${cp.requirement}: ${cp.status}`).join('\n') || 'N/A'}
+【Evaluation Directive】
+Watch and analyze the video presentation (${youtubeLink}) across the following 8 critical dimensions:
 
-【Evaluation Tasks】
-1. Watch the video demonstration (${youtubeLink})
-2. Analyze the consistency between video content and code implementation
-3. Evaluate the presenter's understanding and communication of the project
-4. Assess whether the video demonstration covers the main features implemented in the code
+1️⃣ Content Clarity & Depth
+- Conceptual Clarity: Are project objectives and core concepts articulated clearly?
+- Informational Depth: Does the presenter demonstrate thorough understanding of the project?
+- Problem-Solving Exposition: Is there clear demonstration of how practical challenges are addressed?
 
-Please provide the evaluation results in the following JSON format:
+2️⃣ Structure & Logical Flow
+- Introduction Effectiveness: Does the opening engage viewers and establish context?
+- Organizational Coherence: Is content sequenced logically with clear progression?
+- Transitional Fluidity: Do sections connect seamlessly with natural transitions?
+
+3️⃣ Presentation Technique
+- Communication Efficiency: Is language concise, clear, and effective in conveying information?
+- Delivery Confidence: Does the presenter speak with appropriate confidence, pacing, and fluency?
+- Non-verbal Communication: Is body language effectively utilized to enhance delivery?
+
+4️⃣ Visual Support Materials
+- Design Effectiveness: Are visual materials clear, engaging, and supportive of content?
+- Data Visualization: Are charts/graphics effectively used to illustrate complex concepts?
+- Visual Consistency: Do slides maintain consistent styling, typography, and layout?
+
+5️⃣ Innovation & Distinctiveness
+- Innovation Highlighting: Are project innovations and novel solutions emphasized?
+- Differentiation: Does the project demonstrate distinctive features compared to similar efforts?
+
+6️⃣ Audience Engagement
+- Interactive Elements: Are techniques used to enhance viewer engagement?
+- Question Handling: If applicable, are questions addressed clearly and comprehensively?
+
+7️⃣ Time Management
+- Duration Control: Is the presentation completed within appropriate time constraints?
+- Emphasis Allocation: Is time appropriately allocated to critical content?
+- Duration Verification: Is the video under the 3-minute requirement?
+
+8️⃣ Technical Quality
+- Audio Clarity: Is the audio clear and comprehensible?
+- Visual Quality: Are video resolution and stability sufficient for effective presentation?
+
+【Scoring Rubric】
+- 0.90-1.00: Exemplary - Near-professional quality across virtually all dimensions
+- 0.80-0.89: Superior - Excellent in most aspects with minimal areas for improvement
+- 0.70-0.79: Proficient - Generally effective with several identifiable improvement areas
+- 0.60-0.69: Adequate - Meets basic requirements with multiple aspects requiring enhancement
+- 0.50-0.59: Threshold - Minimally meets essential requirements
+- 0.00-0.49: Insufficient - Fails to meet baseline standards
+
+【Output Format】
+Provide assessment results in the following JSON format:
 {
-  "presentationScore": 0.xx, // Presentation quality score (between 0-1)
-  "scoreExplanation": "Detailed explanation of why this score was given...",
-  "summary": "Video content summary...",
-  "improvements": [
-    {"area": "Improvement area 1", "suggestion": "Specific suggestion..."},
-    {"area": "Improvement area 2", "suggestion": "Specific suggestion..."},
-    {"area": "Improvement area 3", "suggestion": "Specific suggestion..."},
-    {"area": "Improvement area 4", "suggestion": "Specific suggestion..."},
-    {"area": "Improvement area 5", "suggestion": "Specific suggestion..."}
-  ],
-  "overallFeedback": "Comprehensive evaluation and recommendations..."
-}`;
+  "presentationScore": 0.xx, // Overall score (0-1 range)
+  "scoreExplanation": "Detailed rationale for score based on performance across the 8 dimensions...",
+  "summary": "Begin with the EXACT video duration (MM:SS format). Follow with comprehensive evaluation including strengths, limitations, and constructive recommendations..."
+}
+
+CRITICAL: Verify whether the video duration is within the 3-minute limit and clearly state the exact duration at the beginning of your summary.`;
 }
 
 /**
@@ -920,7 +949,6 @@ export async function evaluateVideoPresentation(
   youtubeLink: string,
   projectDetail: string,
   tasks: string[],
-  codeEvaluationResult: CodeEvaluationResult
 ): Promise<VideoEvaluationResult> {
   logWithTime('开始视频演示评估');
   logWithTime(`YouTube链接: ${youtubeLink}`);
@@ -931,7 +959,6 @@ export async function evaluateVideoPresentation(
       youtubeLink,
       projectDetail,
       tasks,
-      codeEvaluationResult
     );
     
     // 调用Gemini API评估视频
@@ -948,10 +975,7 @@ export async function evaluateVideoPresentation(
         videoRawContent: {
           presentationScore: parsedResult.presentationScore || 0,
           scoreExplanation: parsedResult.scoreExplanation || '',
-          summary: parsedResult.summary || '',
-          codeVideoAlignment: parsedResult.codeVideoAlignment || [],
-          improvements: parsedResult.improvements || [],
-          overallFeedback: parsedResult.overallFeedback || ''
+          summary: parsedResult.summary || ''
         }
       };
     } else {
@@ -968,15 +992,6 @@ export async function evaluateVideoPresentation(
           presentationScore: 0.5, // Default medium score
           scoreExplanation: 'Original response is not in valid JSON format, converted to object',
           summary: '[Parsing failed] Original response:\n' + shortSummary,
-          codeVideoAlignment: [
-            {
-              aspect: "Parsing status",
-              aligned: false,
-              details: "Unable to parse API response as JSON format. Please check the summary field for original response content."
-            }
-          ],
-          improvements: [],
-          overallFeedback: "⚠️ Video evaluation result parsing failed. System has returned default structure, but content may not be accurate. Please contact administrator to check API response format.",
           // Keep original text for reference
           _originalText: responseText,
           _isJsonFormat: false
