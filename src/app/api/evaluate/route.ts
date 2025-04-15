@@ -386,7 +386,6 @@ async function processEvaluation(
           youtubeLink,
           projectDetail,
           tasks,
-          evaluationResult
         );
         
         // 更新视频评估结果 - 直接使用返回的对象，其中包含videoRawContent字段
