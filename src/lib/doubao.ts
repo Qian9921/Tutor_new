@@ -875,7 +875,7 @@ function createVideoEvaluationPrompt(
   projectDetail: string,
   tasks: string[],
 ): string {
-  return `Conduct a comprehensive multi-dimensional assessment of the following YouTube video presentation with project & tasks information:
+  return `Conduct a comprehensive multi-dimensional assessment BASED ON THE ACTUAL CONTENT of the following YouTube video presentation:
 
 【Project Information】
 ${projectDetail}
@@ -883,8 +883,16 @@ ${projectDetail}
 【Project Tasks】
 ${tasks.map((task, index) => `${index + 1}. ${task}`).join('\n')}
 
+【CRITICAL INSTRUCTION】
+Your assessment MUST be based on what you actually observe in the video, not what you expect based on the project information. If the video content is unrelated to the described project, you MUST honestly report this discrepancy.
+
 【Evaluation Directive】
-Watch and analyze the video presentation (${youtubeLink}) across the following 8 critical dimensions:
+Watch and analyze the video presentation (${youtubeLink}) across the following critical dimensions:
+
+0️⃣ Content Relevance (HIGHEST PRIORITY)
+- Relevance Assessment: Does the video actually address the project described above?
+- Content Truthfulness: Is the video genuinely about this project or something completely different?
+- Discrepancy Report: If the video is unrelated to the project, document exactly what the video contains instead.
 
 1️⃣ Content Clarity & Depth
 - Conceptual Clarity: Are project objectives and core concepts articulated clearly?
@@ -924,6 +932,7 @@ Watch and analyze the video presentation (${youtubeLink}) across the following 8
 - Visual Quality: Are video resolution and stability sufficient for effective presentation?
 
 【Scoring Rubric】
+- If video is completely unrelated to the project: Score should reflect actual video quality, not project expectations
 - 0.90-1.00: Exemplary - Near-professional quality across virtually all dimensions
 - 0.80-0.89: Superior - Excellent in most aspects with minimal areas for improvement
 - 0.70-0.79: Proficient - Generally effective with several identifiable improvement areas
@@ -934,12 +943,12 @@ Watch and analyze the video presentation (${youtubeLink}) across the following 8
 【Output Format】
 Provide assessment results in the following JSON format:
 {
-  "presentationScore": 0.xx, // Overall score (0-1 range)
-  "scoreExplanation": "Detailed rationale for score based on performance across the 8 dimensions...",
-  "summary": "Begin with the EXACT video duration (MM:SS format). Follow with comprehensive evaluation including strengths, limitations, and constructive recommendations..."
+  "presentationScore": 0.xx, // Overall score (0-1 range) based on ACTUAL video content
+  "scoreExplanation": "Detailed rationale for score based on performance across the dimensions. If video is unrelated to project, clearly state this fact first...",
+  "summary": "Begin with the EXACT video duration (MM:SS format). IMMEDIATELY state whether the video is related to the project or not. Follow with comprehensive evaluation of what the video ACTUALLY contains..."
 }
 
-CRITICAL: Verify whether the video duration is within the 3-minute limit and clearly state the exact duration at the beginning of your summary.`;
+IMPORTANT: Your integrity in honestly assessing the actual video content is crucial. Do not fabricate an assessment based on project expectations if the video shows something different.`;
 }
 
 /**
