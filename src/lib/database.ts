@@ -87,6 +87,7 @@ const TABLE_PREFIX = process.env.DATABASE_TABLE_PREFIX || 'tutor';
 // 集合/表名称
 export const COLLECTIONS = {
   EVALUATIONS: `${TABLE_PREFIX}_evaluations`,
+  VIDEO_EVALUATIONS: `${TABLE_PREFIX}_video_evaluations`,
   CACHE: `${TABLE_PREFIX}_cache`,
   GITHUB_REPOS: `${TABLE_PREFIX}_github_repos`,
   SYSTEM_LOGS: `${TABLE_PREFIX}_system_logs`,
@@ -248,6 +249,24 @@ async function initializeDatabase() {
           message TEXT,
           data JSONB,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // 创建视频评估表
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${COLLECTIONS.VIDEO_EVALUATIONS} (
+          id TEXT PRIMARY KEY,
+          project_detail TEXT,
+          tasks JSONB,
+          youtube_link TEXT,
+          status TEXT,
+          status_message TEXT,
+          result JSONB,
+          error TEXT,
+          stack TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          completed_at TIMESTAMP WITH TIME ZONE
         )
       `);
 
