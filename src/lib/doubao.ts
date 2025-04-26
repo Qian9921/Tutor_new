@@ -82,11 +82,11 @@ function extractJsonFromMarkdown(text: string): any {
   } catch (e) {
     // 记录直接解析失败的错误
     logWithTime('直接解析JSON失败:', e);
-    
+
     // 直接解析失败，尝试提取代码块
     const jsonBlockRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/m;
     const match = text.match(jsonBlockRegex);
-    
+
     if (match && match[1]) {
       // 找到代码块，尝试解析其内容
       try {
@@ -96,7 +96,7 @@ function extractJsonFromMarkdown(text: string): any {
         logWithTime('代码块解析失败:', innerError);
       }
     }
-    
+
     // 如果上述方法都失败，返回null
     return null;
   }
@@ -338,15 +338,15 @@ Provide assessment in JSON format:
  */
 function getMockEvaluationResult(): CodeEvaluationResult {
   logWithTime('返回模拟评估结果');
-  
+
   // 直接返回JavaScript对象
   return {
     rawContent: {
       assessment: 0.68,
       checkpoints: [
-        {requirement: "User login functionality", status: "✅ Completed", details: "Login functionality works correctly"},
-        {requirement: "Password reset functionality", status: "❌ Not completed", details: "Missing password reset process"},
-        {requirement: "Security protection mechanisms", status: "⚠️ Partially completed", details: "Missing CAPTCHA protection against brute force attacks"}
+        { requirement: "User login functionality", status: "✅ Completed", details: "Login functionality works correctly" },
+        { requirement: "Password reset functionality", status: "❌ Not completed", details: "Missing password reset process" },
+        { requirement: "Security protection mechanisms", status: "⚠️ Partially completed", details: "Missing CAPTCHA protection against brute force attacks" }
       ],
       summary: "✅Complete login process | ✅User-friendly UI | ❌Missing password reset | ❌No remembered login state | ⚠️No CAPTCHA for brute force protection | ⚠️Insufficient password strength detection",
       improvements: [
@@ -405,7 +405,7 @@ function createSmartFileBatches(
 
   // 按目录分组文件
   const directoryMap: Record<string, { path: string; content: string; relevance: number }[]> = {};
-  
+
   for (const file of files) {
     const dirPath = file.path.split('/').slice(0, -1).join('/');
     if (!directoryMap[dirPath]) {
@@ -418,31 +418,31 @@ function createSmartFileBatches(
   const fileGroups: FileGroup[] = [
     { files: [], totalSize: 0, directoryScore: {} }
   ];
-  
+
   // 处理每个目录
   for (const dirPath in directoryMap) {
     const dirFiles = directoryMap[dirPath];
-    
+
     // 计算该目录的文件总大小
     const dirSize = JSON.stringify(dirFiles).length;
-    
+
     // 整个目录可以放入一个批次
     if (dirSize <= maxBatchSize * 0.8) {
       // 尝试找到最合适的组
       let bestGroupIndex = 0;
       let bestScore = -1;
-      
+
       for (let i = 0; i < fileGroups.length; i++) {
         const group = fileGroups[i];
-        
+
         // 检查容量
         if (group.totalSize + dirSize > maxBatchSize) {
           continue;
         }
-        
+
         // 计算相关性评分 
         let score = group.directoryScore[dirPath] || 0;
-        
+
         // 如果这个目录有已经存在于组中的上级目录，增加分数
         for (const existingDir in group.directoryScore) {
           if (dirPath.startsWith(existingDir)) {
@@ -451,18 +451,18 @@ function createSmartFileBatches(
             score += 2;
           }
         }
-        
+
         // 找到最高评分的组
         if (score > bestScore || (score === bestScore && group.totalSize < fileGroups[bestGroupIndex].totalSize)) {
           bestScore = score;
           bestGroupIndex = i;
         }
       }
-      
+
       // 如果找不到合适的组，创建一个新组
       if (bestScore < 0 || fileGroups[bestGroupIndex].totalSize + dirSize > maxBatchSize) {
-        fileGroups.push({ 
-          files: [...dirFiles], 
+        fileGroups.push({
+          files: [...dirFiles],
           totalSize: dirSize,
           directoryScore: { [dirPath]: 1 }
         });
@@ -476,14 +476,14 @@ function createSmartFileBatches(
     } else {
       // 目录太大，需要拆分
       const tempFiles = [...dirFiles];
-      
+
       // 按相关性排序
       tempFiles.sort((a, b) => b.relevance - a.relevance);
-      
+
       // 逐个添加文件到组中
       for (const file of tempFiles) {
         const fileSize = JSON.stringify(file).length;
-        
+
         // 寻找合适的组
         let added = false;
         for (const group of fileGroups) {
@@ -495,7 +495,7 @@ function createSmartFileBatches(
             break;
           }
         }
-        
+
         // 如果没有合适的组，创建新组
         if (!added) {
           fileGroups.push({
@@ -507,28 +507,28 @@ function createSmartFileBatches(
       }
     }
   }
-  
+
   // 优化批次：合并小批次
   fileGroups.sort((a, b) => a.totalSize - b.totalSize);
   for (let i = 0; i < fileGroups.length - 1; i++) {
     const current = fileGroups[i];
-    
+
     // 如果当前组太小，尝试合并
     if (current.totalSize < maxBatchSize * 0.5) {
       for (let j = i + 1; j < fileGroups.length; j++) {
         const next = fileGroups[j];
-        
+
         // 检查合并后是否超出大小限制
         if (current.totalSize + next.totalSize <= maxBatchSize) {
           // 合并组
           current.files.push(...next.files);
           current.totalSize += next.totalSize;
-          
+
           // 合并目录评分
           for (const dir in next.directoryScore) {
             current.directoryScore[dir] = (current.directoryScore[dir] || 0) + next.directoryScore[dir];
           }
-          
+
           // 移除已合并的组
           fileGroups.splice(j, 1);
           j--;
@@ -536,15 +536,15 @@ function createSmartFileBatches(
       }
     }
   }
-  
+
   // 提取最终批次
   const batches = fileGroups.map(group => group.files);
-  
+
   logWithTime(`智能分批完成，创建了 ${batches.length} 个批次`);
   batches.forEach((batch, index) => {
     logWithTime(`批次 ${index + 1}: ${batch.length} 个文件，约 ${Math.floor(JSON.stringify(batch).length / 1024)} KB`);
   });
-  
+
   return batches;
 }
 
@@ -552,8 +552,8 @@ function createSmartFileBatches(
  * 生成批次间的连续性提示
  */
 function createBatchPrompt(
-  batchNumber: number, 
-  totalBatches: number, 
+  batchNumber: number,
+  totalBatches: number,
   context: BatchContext,
   isLastBatch: boolean
 ): string {
@@ -570,13 +570,13 @@ Remember what you see, as later batches will require you to use this information
       previousFiles = `\n\n## Files you have analyzed in previous batches:
 ${context.processedFiles.map(path => `- ${path}`).join('\n')}`;
     }
-    
+
     let insights = '';
     if (context.keyInsights && context.keyInsights.length > 0) {
       insights = `\n\n## Key code characteristics you discovered in previous batches:
-${context.keyInsights.map((insight, i) => `${i+1}. ${insight}`).join('\n')}`;
+${context.keyInsights.map((insight, i) => `${i + 1}. ${insight}`).join('\n')}`;
     }
-    
+
     return `## This is the final batch of code assessment (${batchNumber}/${totalBatches})
 
 You now need to complete two tasks:
@@ -594,13 +594,13 @@ After analyzing the code in this batch, please conduct a thorough evaluation aga
       previousFiles = `\n\nFiles you have analyzed in previous batches:
 ${context.processedFiles.map(path => `- ${path}`).join('\n')}`;
     }
-    
+
     let insights = '';
     if (context.keyInsights && context.keyInsights.length > 0) {
       insights = `\n\nKey code characteristics you discovered in previous batches:
-${context.keyInsights.map((insight, i) => `${i+1}. ${insight}`).join('\n')}`;
+${context.keyInsights.map((insight, i) => `${i + 1}. ${insight}`).join('\n')}`;
     }
-    
+
     return `## This is batch ${batchNumber}/${totalBatches} of the code assessment
 
 Please continue analyzing the code files below, but do not perform final evaluation or scoring yet.
@@ -618,64 +618,64 @@ export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promi
   logWithTime('Starting batch code evaluation');
   logWithTime(`Project: ${params.projectDetail.substring(0, 100)}...`);
   logWithTime(`Total files: ${params.relevantFiles.length}`);
-  
+
   // 模拟数据快速返回
   if (shouldUseMockData()) {
     logWithTime('Configured to use mock data, skipping batch processing');
     return getMockEvaluationResult();
   }
-  
+
   // 计算批次大小限制 - 每批约75k tokens (约300K字符)
   const MAX_BATCH_CHARS = 300000;
-  
+
   // 创建批次
   const allFiles = [...params.relevantFiles];
   logWithTime(`Preparing batches, total files: ${allFiles.length}`);
-  
+
   // 使用智能分批算法
   const batches = createSmartFileBatches(allFiles, MAX_BATCH_CHARS);
-  
+
   // 如果只有一个批次，直接评估
   if (batches.length === 1) {
     logWithTime('Only one batch, using standard evaluation');
     return evaluateCode(params);
   }
-  
+
   logWithTime(`Files divided into ${batches.length} batches`);
-  
+
   // 初始化上下文
   const context: BatchContext = {
     processedFiles: [],
     keyInsights: [],
     batchResults: []
   };
-  
+
   let lastResult: CodeEvaluationResult | null = null;
-  
+
   // 处理每个批次
   for (let i = 0; i < batches.length; i++) {
     const isLastBatch = i === batches.length - 1;
     const batch = batches[i];
     const batchNumber = i + 1;
-    
+
     logWithTime(`Processing batch ${batchNumber}/${batches.length}, containing ${batch.length} files`);
-    
+
     try {
       // 为当前批次创建上下文提示
       const batchPrompt = createBatchPrompt(
-        batchNumber, 
-        batches.length, 
+        batchNumber,
+        batches.length,
         context,
         isLastBatch
       );
-      
+
       // 创建批次参数
       const batchParams: CodeEvaluationParams = {
         ...params,
         relevantFiles: batch,
         projectDetail: `${batchPrompt}\n\n${params.projectDetail}`
       };
-      
+
       // 根据批次类型使用不同的系统提示
       if (!isLastBatch) {
         // Non-final batch: analysis mode
@@ -684,24 +684,24 @@ export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promi
         // Final batch: evaluation mode
         batchParams.currentTask = `[Batch ${batchNumber}/${batches.length}] ${params.currentTask} - Comprehensive evaluation`;
       }
-      
+
       // Modify system prompt to ensure continuity
       batchParams.repoSummary = isLastBatch
         ? `${params.repoSummary}\n\n[Final batch] Please provide a comprehensive evaluation based on all batch files.`
         : `${params.repoSummary}\n\n[Batch ${batchNumber}/${batches.length}] Please analyze these files, remember the content, but do not provide final evaluation.`;
-      
+
       // 评估当前批次
       logWithTime(`Starting evaluation of batch ${batchNumber}/${batches.length}`);
       const batchStartTime = Date.now();
-      
+
       const batchResult = await evaluateCode(batchParams);
-      
+
       const batchDuration = Date.now() - batchStartTime;
       logWithTime(`Batch ${batchNumber}/${batches.length} evaluation completed, took ${batchDuration}ms`);
-      
+
       // 收集处理过的文件路径
       context.processedFiles.push(...batch.map(file => file.path));
-      
+
       // 保存批次结果
       const batchEvalResult: BatchEvaluationResult = {
         batch: batchNumber,
@@ -710,38 +710,38 @@ export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promi
         processedFiles: batch.map(file => file.path),
         success: true
       };
-      
+
       context.batchResults.push(batchEvalResult);
-      
+
       // 如果不是最后一个批次，尝试提取关键见解
       if (!isLastBatch && batchResult.rawContent) {
         try {
           // 尝试从结果中提取关键见解
           const rawContent = batchResult.rawContent;
-          
+
           // 收集checkpoints或summary中的信息
           if (rawContent.checkpoints && Array.isArray(rawContent.checkpoints)) {
             const insights = rawContent.checkpoints
               .filter((cp: any) => cp.status && cp.details)
               .map((cp: any) => `${cp.requirement}: ${cp.status}`);
-            
+
             if (insights.length > 0) {
               context.keyInsights.push(...insights.slice(0, 3));
             }
           }
-          
+
           if (rawContent.summary && typeof rawContent.summary === 'string') {
             // 提取摘要中的关键点
             const summaryPoints = rawContent.summary
               .split(/[|,;.]/)
               .filter((point: string) => point.trim().length > 10)
               .slice(0, 2);
-            
+
             if (summaryPoints.length > 0) {
               context.keyInsights.push(...summaryPoints);
             }
           }
-          
+
           // 限制关键见解数量
           if (context.keyInsights.length > 5) {
             context.keyInsights = context.keyInsights.slice(0, 5);
@@ -751,10 +751,10 @@ export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promi
           // 继续处理，这不是致命错误
         }
       }
-      
+
       // 保存最后一个批次的结果
       lastResult = batchResult;
-      
+
       // 如果是最后一个批次，进行额外的汇总步骤
       if (isLastBatch) {
         try {
@@ -772,11 +772,11 @@ export async function evaluateCodeInBatches(params: CodeEvaluationParams): Promi
             }
             return null;
           }).filter(Boolean);
-          
+
           // 创建汇总请求
           if (batchAnalyses.length > 1) {
             logWithTime(`Performing batch summary analysis...`);
-            
+
             // 构建汇总提示
             const summaryPrompt = `Please provide a comprehensive evaluation based on all batch code analysis results. This is a summary of analysis across all batches (total ${batches.length} batches).
             
@@ -785,17 +785,17 @@ ${context.processedFiles.map(path => `- ${path}`).join('\n')}
 
 Each batch analysis summary:
 ${batchAnalyses.map(ba => {
-  if (!ba) return ''; // 处理可能为null的情况
-  return `
+              if (!ba) return ''; // 处理可能为null的情况
+              return `
 --- Batch ${ba.batch} Analysis ---
 Files: ${ba.files.join(', ')}
 ${ba.summary ? `Summary: ${ba.summary}` : ''}
 `;
-}).join('\n')}
+            }).join('\n')}
 
 Please conduct a thorough evaluation based on all these information, against the assessment criteria.
 Your assessment must consider all files from all batches, not just the last batch.`;
-            
+
             // 创建汇总请求参数
             const summaryParams: CodeEvaluationParams = {
               ...params,
@@ -804,16 +804,16 @@ Your assessment must consider all files from all batches, not just the last batc
               currentTask: `Final comprehensive evaluation - Analysis based on ${context.processedFiles.length} files`,
               repoSummary: `${params.repoSummary}\n\n[Comprehensive evaluation] Based on analysis across all ${batches.length} batches for final assessment.`
             };
-            
+
             // 执行汇总评估
             const summaryStartTime = Date.now();
             const summaryResult = await evaluateCode(summaryParams);
             const summaryDuration = Date.now() - summaryStartTime;
             logWithTime(`Summary analysis completed, took ${summaryDuration}ms`);
-            
+
             // 使用汇总结果替代最后批次结果
             lastResult = summaryResult;
-            
+
             // 返回汇总结果
             const totalDuration = Date.now() - startTime;
             logWithTime(`Batch processing evaluation completed (including summary), total took ${totalDuration}ms`);
@@ -823,12 +823,12 @@ Your assessment must consider all files from all batches, not just the last batc
           logError('执行汇总分析失败，将使用最后批次结果', summaryError);
           // 继续使用最后批次结果
         }
-        
+
         const totalDuration = Date.now() - startTime;
         logWithTime(`Batch processing evaluation completed, total took ${totalDuration}ms`);
         return batchResult;
       }
-      
+
       // 批次间短暂暂停，避免频繁API调用
       if (i < batches.length - 1) {
         logWithTime(`批次间冷却，等待1秒...`);
@@ -836,7 +836,7 @@ Your assessment must consider all files from all batches, not just the last batc
       }
     } catch (error) {
       logError(`批次 ${batchNumber}/${batches.length} 处理失败`, error);
-      
+
       // 记录失败的批次
       context.batchResults.push({
         batch: batchNumber,
@@ -846,23 +846,23 @@ Your assessment must consider all files from all batches, not just the last batc
         success: false,
         error: error as Error
       });
-      
+
       // 如果是最后一个批次出错，抛出异常
       if (isLastBatch) {
         throw error;
       }
-      
+
       // 否则继续处理下一个批次
       logWithTime(`尽管批次 ${batchNumber} 失败，但继续处理后续批次`);
       continue;
     }
   }
-  
+
   // 如果没有任何批次成功，抛出异常
   if (!lastResult) {
     throw new Error('所有批次处理都失败了');
   }
-  
+
   // 返回最后一个批次的结果
   return lastResult;
 }
@@ -871,11 +871,11 @@ Your assessment must consider all files from all batches, not just the last batc
  * 创建视频评估提示
  */
 function createVideoEvaluationPrompt(
-  youtubeLink: string,
   projectDetail: string,
   tasks: string[],
+  youtubeLink: string
 ): string {
-  return `Conduct a comprehensive multi-dimensional assessment BASED ON THE ACTUAL CONTENT of the following YouTube video presentation:
+  return `Please conduct a comprehensive, multi-dimensional assessment of the following YouTube video presentation.
 
 【Project Information】
 ${projectDetail}
@@ -883,72 +883,60 @@ ${projectDetail}
 【Project Tasks】
 ${tasks.map((task, index) => `${index + 1}. ${task}`).join('\n')}
 
-【CRITICAL INSTRUCTION】
-Your assessment MUST be based on what you actually observe in the video, not what you expect based on the project information. If the video content is unrelated to the described project, you MUST honestly report this discrepancy.
+**【CORE INSTRUCTIONS - MUST READ】**
+1.  **Adhere to Facts**: Your assessment **MUST** be based on the content **ACTUALLY** presented in the video. **Strictly prohibit** making assumptions about the video content based on the project information.
+2.  **Content Verification**: First, determine if the video content is relevant to the 【Project Information】 and 【Project Tasks】 provided above.
+3.  **Discrepancy Report**: If the video content is **completely unrelated** to the project, you MUST explicitly state this at the beginning of the assessment and describe the **actual** content of the video.
+4.  **Duration First**: Before starting the assessment, determine and record the **exact duration** of the video (MM:SS format).
 
-【Evaluation Directive】
-Watch and analyze the video presentation (${youtubeLink}) across the following critical dimensions:
+【Evaluation Task】
+Please watch and analyze the video (${youtubeLink}), focusing on evaluating the following aspects:
 
-0️⃣ Content Relevance (HIGHEST PRIORITY)
-- Relevance Assessment: Does the video actually address the project described above?
-- Content Truthfulness: Is the video genuinely about this project or something completely different?
-- Discrepancy Report: If the video is unrelated to the project, document exactly what the video contains instead.
+**1. Content Relevance & Accuracy (Highest Priority)**
+   *   **Relevance**: How well does the video content match the project description? (Fully Relevant / Partially Relevant / Completely Unrelated)
+   *   **Authenticity**: Does the video genuinely showcase the work for this project, or does it display something else?
+   *   **If Unrelated**: You must detail here what the video actually shows.
 
-1️⃣ Content Clarity & Depth
-- Conceptual Clarity: Are project objectives and core concepts articulated clearly?
-- Informational Depth: Does the presenter demonstrate thorough understanding of the project?
-- Problem-Solving Exposition: Is there clear demonstration of how practical challenges are addressed?
+**2. Core Message Delivery**
+   *   **Objective Clarity**: Are the project objectives and core concepts clearly articulated?
+   *   **Content Depth**: Does the presenter demonstrate a deep understanding of the project? Is the information sufficient?
+   *   **Logic & Structure**: Is the content organized logically? Are transitions smooth?
 
-2️⃣ Structure & Logical Flow
-- Introduction Effectiveness: Does the opening engage viewers and establish context?
-- Organizational Coherence: Is content sequenced logically with clear progression?
-- Transitional Fluidity: Do sections connect seamlessly with natural transitions?
+**3. Presentation Effectiveness & Technique**
+   *   **Expression Clarity**: Is the language concise, fluent, and easy to understand?
+   *   **Presentation Demeanor**: Is the presenter confident? Is the pacing and body language appropriate?
+   *   **Visual Aids**: Are slides or other visual materials clear, effective, and consistently designed?
 
-3️⃣ Presentation Technique
-- Communication Efficiency: Is language concise, clear, and effective in conveying information?
-- Delivery Confidence: Does the presenter speak with appropriate confidence, pacing, and fluency?
-- Non-verbal Communication: Is body language effectively utilized to enhance delivery?
+**4. Technical Quality & Duration**
+   *   **Audio/Video Quality**: Is the audio clear? Is the video stable with adequate resolution?
+   *   **Time Management**: Is the presentation completed within a reasonable timeframe? (Note: Check if it meets the 3-minute requirement).
 
-4️⃣ Visual Support Materials
-- Design Effectiveness: Are visual materials clear, engaging, and supportive of content?
-- Data Visualization: Are charts/graphics effectively used to illustrate complex concepts?
-- Visual Consistency: Do slides maintain consistent styling, typography, and layout?
+**5. Innovation & Highlights (If content is relevant)**
+   *   **Innovation Emphasis**: Are the project's innovations highlighted?
+   *   **Uniqueness**: Does it demonstrate distinctiveness compared to similar projects?
 
-5️⃣ Innovation & Distinctiveness
-- Innovation Highlighting: Are project innovations and novel solutions emphasized?
-- Differentiation: Does the project demonstrate distinctive features compared to similar efforts?
+【Scoring Guide】
+*   **Baseline**: Scoring is based on the quality of the **actual content** presented in the video.
+*   **Handling Irrelevance**: If the video content is **completely unrelated** to the project, then:
+    *   \`presentationScore\` should primarily reflect the presentation effectiveness and technical quality of the **actual video content** (mainly based on dimensions 3 and 4), but the total score **should not exceed 0.5**.
+    *   \`scoreExplanation\` and \`summary\` **must first** state that the video is unrelated to the project and explain that the score is based on the video's own quality.
+*   **Score Ranges**:
+    *   0.75-1.00: Excellent - Professional quality with clear presentation and comprehensive content.
+    *   0.50-0.74: Proficient - Generally effective with some areas for improvement.
+    *   0.25-0.49: Adequate - Meets basic requirements but needs significant enhancement.
+    *   0.00-0.24: Insufficient - Fails to meet baseline standards, or the video is completely unrelated to the project (scored according to the rules above).
 
-6️⃣ Audience Engagement
-- Interactive Elements: Are techniques used to enhance viewer engagement?
-- Question Handling: If applicable, are questions addressed clearly and comprehensively?
-
-7️⃣ Time Management
-- Duration Control: Is the presentation completed within appropriate time constraints?
-- Emphasis Allocation: Is time appropriately allocated to critical content?
-- Duration Verification: Is the video under the 3-minute requirement?
-
-8️⃣ Technical Quality
-- Audio Clarity: Is the audio clear and comprehensible?
-- Visual Quality: Are video resolution and stability sufficient for effective presentation?
-
-【Scoring Rubric】
-- If video is completely unrelated to the project: Score should reflect actual video quality, not project expectations
-- 0.90-1.00: Exemplary - Near-professional quality across virtually all dimensions
-- 0.80-0.89: Superior - Excellent in most aspects with minimal areas for improvement
-- 0.70-0.79: Proficient - Generally effective with several identifiable improvement areas
-- 0.60-0.69: Adequate - Meets basic requirements with multiple aspects requiring enhancement
-- 0.50-0.59: Threshold - Minimally meets essential requirements
-- 0.00-0.49: Insufficient - Fails to meet baseline standards
-
-【Output Format】
-Provide assessment results in the following JSON format:
+【Output Format - MUST ADHERE】
+Please provide the assessment results strictly in the following JSON format:
 {
+  "videoDuration": "MM:SS", // The exact duration of the video, must be right!!!
   "presentationScore": 0.xx, // Overall score (0-1 range) based on ACTUAL video content
-  "scoreExplanation": "Detailed rationale for score based on performance across the dimensions. If video is unrelated to project, clearly state this fact first...",
-  "summary": "Begin with the EXACT video duration (MM:SS format). IMMEDIATELY state whether the video is related to the project or not. Follow with comprehensive evaluation of what the video ACTUALLY contains..."
+  "scoreExplanation": "Detailed rationale for the score. Must first state if the video is relevant to the project. If unrelated, explain the score is based on the video's own quality...",
+  "summary": "Summary. Must first state if the video is relevant to the project. Then provide an overview based on the actual video content..."
 }
 
-IMPORTANT: Your integrity in honestly assessing the actual video content is crucial. Do not fabricate an assessment based on project expectations if the video shows something different.`;
+**【Important Reminder】**
+Your integrity is crucial. Please ensure your assessment is based on the **true** content of the video, even if it differs from the expected project description.`;
 }
 
 /**
@@ -965,9 +953,9 @@ export async function evaluateVideoPresentation(
   try {
     // 创建评估提示
     const evaluationPrompt = createVideoEvaluationPrompt(
-      youtubeLink,
       projectDetail,
       tasks,
+      youtubeLink
     );
     
     // 调用Gemini API评估视频
@@ -982,6 +970,7 @@ export async function evaluateVideoPresentation(
       
       return {
         videoRawContent: {
+          videoDuration: parsedResult.videoDuration || '',
           presentationScore: parsedResult.presentationScore || 0,
           scoreExplanation: parsedResult.scoreExplanation || '',
           summary: parsedResult.summary || ''
@@ -998,6 +987,7 @@ export async function evaluateVideoPresentation(
       
       return {
         videoRawContent: {
+          videoDuration: '',
           presentationScore: 0.5, // Default medium score
           scoreExplanation: 'Original response is not in valid JSON format, converted to object',
           summary: '[Parsing failed] Original response:\n' + shortSummary,

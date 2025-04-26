@@ -219,6 +219,7 @@ async function processVideoEvaluation(
       logWithTime(`[ID: ${evaluationId}] 视频评估完成`);
       if (videoResult.videoRawContent) {
         logWithTime(`[ID: ${evaluationId}] 视频评估结果:`, {
+          videoDuration: videoResult.videoRawContent.videoDuration,
           presentationScore: videoResult.videoRawContent.presentationScore,
           summaryLength: videoResult.videoRawContent.summary?.length || 0
         });
