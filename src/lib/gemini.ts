@@ -109,7 +109,7 @@ export async function evaluateYouTubeVideo(youtubeUrl: string, prompt: string): 
     // 项目配置
     const projectId = 'open-impact-lab-zob4aq';
     const location = 'us-central1';
-    const modelName = 'gemini-1.5-flash-001';
+    const modelName = 'gemini-2.5-pro-preview-03-25';
     
     // 初始化Vertex AI（需要确保环境已配置好Google Cloud认证）
     const vertexAI = new VertexAI({

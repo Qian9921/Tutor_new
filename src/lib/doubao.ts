@@ -185,7 +185,7 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 
       // 使用OpenAI SDK发送请求
       const response = await openai.chat.completions.create({
-        model: 'gemini-2.0-flash', // 通义千问模型
+        model: 'gemini-2.5-pro-preview-03-25', // 通义千问模型
         //model: 'qwen-plus', // 通义千问模型
         messages: [
           {
