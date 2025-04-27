@@ -1,42 +1,48 @@
-import { OpenAI } from 'openai';
+import { VertexAI } from '@google-cloud/vertexai';
 import { evaluateYouTubeVideo, extractJsonFromMarkdown as extractJsonFromMarkdownGemini } from './gemini';
 
 // 添加时间戳的日志函数
 function logWithTime(message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
   if (data) {
-    console.log(`[${timestamp}] [QWEN API] ${message}`, data);
+    console.log(`[${timestamp}] [VERTEX AI] ${message}`, data);
   } else {
-    console.log(`[${timestamp}] [QWEN API] ${message}`);
+    console.log(`[${timestamp}] [VERTEX AI] ${message}`);
   }
 }
 
 function logError(message: string, error: unknown) {
   const timestamp = new Date().toISOString();
-  console.error(`[${timestamp}] [QWEN API ERROR] ${message}`, error);
+  console.error(`[${timestamp}] [VERTEX AI ERROR] ${message}`, error);
   console.error(`Stack: ${(error as Error).stack || 'No stack trace'}`);
 }
 
-// 尝试不同的API基础URL
-const API_BASE_URLS = [
-  //'https://dashscope.aliyuncs.com/compatible-mode/v1' 
-  'https://generativelanguage.googleapis.com/v1beta/openai/'       // 通义千问API
-];
+// 项目配置
+const projectId = 'open-impact-lab-zob4aq';
+const location = 'us-central1';
+const modelName = 'gemini-2.5-pro-preview-03-25';
 
-// 创建OpenAI客户端
-function createOpenAIClient(baseURL: string) {
-  const apiKey = process.env.DASHSCOPE_API_KEY || 'dummy-key';
-
-  return new OpenAI({
-    apiKey: apiKey,
-    baseURL: baseURL,
-    timeout: 600000, // 60秒超时
-    maxRetries: 0,  // 我们自己处理重试
-  });
+// 创建VertexAI客户端
+function createVertexAIClient() {
+  try {
+    // 初始化Vertex AI
+    const vertexAI = new VertexAI({
+      project: projectId, 
+      location: location
+    });
+    
+    // 获取生成式模型
+    return vertexAI.getGenerativeModel({
+      model: modelName,
+    });
+  } catch (error) {
+    logError('初始化VertexAI客户端失败', error);
+    throw new Error(`初始化VertexAI客户端失败: ${(error as Error).message}`);
+  }
 }
 
 // 初始化默认客户端
-let openai = createOpenAIClient(API_BASE_URLS[0]);
+let generativeModel = createVertexAIClient();
 
 // API请求参数类型
 export interface CodeEvaluationParams {
@@ -120,7 +126,6 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
   const maxRetries = 3;
   let retryCount = 0;
   let lastError = null;
-  let currentUrlIndex = 0;
 
   // 准备请求数据
   const requestData = {
@@ -170,27 +175,19 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
 
   while (retryCount < maxRetries) {
     try {
-      // 对于每个新的重试循环，尝试切换API基础URL
-      if (retryCount > 0 && currentUrlIndex < API_BASE_URLS.length - 1) {
-        currentUrlIndex++;
-        const newBaseURL = API_BASE_URLS[currentUrlIndex];
-        logWithTime(`切换到备用API基础URL: ${newBaseURL}`);
-        openai = createOpenAIClient(newBaseURL);
+      // 如果是重试，尝试重新初始化客户端
+      if (retryCount > 0) {
+        logWithTime(`重新初始化VertexAI客户端 (尝试 ${retryCount + 1}/${maxRetries})`);
+        generativeModel = createVertexAIClient();
       }
 
-      logWithTime(`发送评估请求到通义千问API${retryCount > 0 ? ` (尝试 ${retryCount + 1}/${maxRetries})` : ''}`);
+      logWithTime(`发送评估请求到Vertex AI${retryCount > 0 ? ` (尝试 ${retryCount + 1}/${maxRetries})` : ''}`);
 
       // 打印请求数据
       logWithTime('请求数据', requestData);
 
-      // 使用OpenAI SDK发送请求
-      const response = await openai.chat.completions.create({
-        model: 'gemini-2.5-pro-preview-03-25', // 通义千问模型
-        //model: 'qwen-plus', // 通义千问模型
-        messages: [
-          {
-            role: 'system',
-            content: `You are a code assessment expert. Your job is to evaluate ONLY the CURRENT TASK based STRICTLY on the EVIDENCE criteria.
+      // 构建系统提示和用户提示
+      const systemPrompt = `You are a code assessment expert. Your job is to evaluate ONLY the CURRENT TASK based STRICTLY on the EVIDENCE criteria.
 
 【IMPORTANT RULES】
 1. Evaluate ONLY the currentTask, NOT other tasks from the tasks list
@@ -256,20 +253,44 @@ Provide assessment in JSON format:
 - CRITICAL: Score 1.0 means ALL evidence criteria are met, nothing more, nothing less
 - Include at least 10 appropriate emojis in your response
 - Format the response as valid JSON
-`
+`;
+
+      // 使用VertexAI发送请求
+      const request = {
+        contents: [
+          {
+            role: 'system',
+            parts: [{ text: systemPrompt }],
           },
           {
             role: 'user',
-            content: JSON.stringify(requestData)
+            parts: [{ text: JSON.stringify(requestData) }],
           }
         ],
-        temperature: 0,
-      });
+        generationConfig: {
+          temperature: 0,
+        },
+      };
+
+      // 发送请求并等待响应
+      const response = await generativeModel.generateContent(request);
+      const aggregatedResponse = await response.response;
 
       logWithTime('评估请求成功');
 
-      // 解析响应内容
-      const responseContent = response.choices[0]?.message?.content || '';
+      // 检查响应是否包含有效内容
+      if (!aggregatedResponse.candidates || 
+          aggregatedResponse.candidates.length === 0 || 
+          !aggregatedResponse.candidates[0].content ||
+          !aggregatedResponse.candidates[0].content.parts ||
+          aggregatedResponse.candidates[0].content.parts.length === 0) {
+        throw new Error('收到的响应不包含有效内容');
+      }
+
+      // 获取响应文本并处理可能的undefined
+      const firstPart = aggregatedResponse.candidates[0].content.parts[0];
+      const responseContent = firstPart.text || '';
+      
       logWithTime('原始响应内容', responseContent);
 
       let result: CodeEvaluationResult;
@@ -303,7 +324,7 @@ Provide assessment in JSON format:
       // 详细记录错误信息
       let errorMessage = `评估请求失败: ${(error as Error).message}`;
       if ((error as { code?: string }).code === 'ENOTFOUND') {
-        errorMessage = `DNS解析失败，无法连接到API服务器 (${API_BASE_URLS[currentUrlIndex]}): ${(error as Error).message}`;
+        errorMessage = `DNS解析失败，无法连接到API服务器: ${(error as Error).message}`;
       } else if ((error as { code?: string }).code === 'ETIMEDOUT') {
         errorMessage = `连接超时: ${(error as Error).message}`;
       } else if ((error as { code?: string }).code === 'ECONNREFUSED') {
