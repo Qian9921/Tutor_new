@@ -259,12 +259,11 @@ Provide assessment in JSON format:
       const request = {
         contents: [
           {
-            role: 'system',
-            parts: [{ text: systemPrompt }],
-          },
-          {
             role: 'user',
-            parts: [{ text: JSON.stringify(requestData) }],
+            parts: [
+              { text: systemPrompt },
+              { text: JSON.stringify(requestData) }
+            ],
           }
         ],
         generationConfig: {
