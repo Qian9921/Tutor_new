@@ -221,7 +221,8 @@ async function processVideoEvaluation(
         logWithTime(`[ID: ${evaluationId}] 视频评估结果:`, {
           videoDuration: videoResult.videoRawContent.videoDuration,
           presentationScore: videoResult.videoRawContent.presentationScore,
-          summaryLength: videoResult.videoRawContent.summary?.length || 0
+          summary: videoResult.videoRawContent.summary,
+          scoreExplanation: videoResult.videoRawContent.scoreExplanation
         });
       }
     } catch (evaluateError) {
