@@ -20,7 +20,7 @@ function logError(message: string, error: unknown) {
 // 项目配置
 const projectId = 'open-impact-lab-zob4aq';
 const location = 'us-central1';
-const modelName = 'gemini-2.5-pro-preview-03-25';
+const modelName = 'gemini-2.5-pro';
 
 // 创建VertexAI客户端
 function createVertexAIClient() {
