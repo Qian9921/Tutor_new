@@ -10,7 +10,6 @@
     "test": "jest"
   },
   "dependencies": {
-    "@google-cloud/vertexai": "^1.9.3",
     "@llamaindex/core": "0.2.12",
     "@octokit/rest": "20.1.2",
     "@tailwindcss/forms": "0.5.7",
@@ -28,7 +27,8 @@
     "socks-proxy-agent": "8.0.2",
     "swr": "2.2.5",
     "tailwindcss": "4",
-    "uuid": "9.0.1"
+    "uuid": "9.0.1",
+    "google-auth-library": "^10.5.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3",

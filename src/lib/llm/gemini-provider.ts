@@ -1,9 +1,12 @@
-import { VertexAI } from '@google-cloud/vertexai';
+import { GoogleAuth } from 'google-auth-library';
 
 import { logError, logWithTime } from '@/lib/logger';
 import { GEMINI_CONFIG, GeminiTaskType, getTaskConfig } from './config';
 
 const MODULE_NAME = 'GEMINI PROVIDER';
+const googleAuth = new GoogleAuth({
+  scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+});
 
 export function extractJsonFromMarkdown(text: string): Record<string, unknown> | null {
   try {
@@ -32,24 +35,20 @@ export function extractJsonFromMarkdown(text: string): Record<string, unknown> |
   }
 }
 
-function createVertexClient(location: string) {
-  return new VertexAI({
-    project: GEMINI_CONFIG.projectId,
-    location,
-  });
-}
+async function getAccessToken() {
+  const client = await googleAuth.getClient();
+  const tokenResult = await client.getAccessToken();
+  const token = typeof tokenResult === 'string' ? tokenResult : tokenResult?.token;
 
-function buildModel(taskType: GeminiTaskType, useFallback = false) {
-  const config = getTaskConfig(taskType);
-  const model = useFallback ? config.fallbackModel : config.primaryModel;
-  const location = useFallback ? config.fallbackLocation : config.primaryLocation;
-
-  if (!model || !location) {
-    throw new Error(`No Gemini model configured for ${taskType} fallback=${useFallback}`);
+  if (!token) {
+    throw new Error('无法获取 Google Cloud 访问令牌');
   }
 
-  logWithTime(MODULE_NAME, `Using model ${model} in ${location} for ${taskType}`);
-  return createVertexClient(location).getGenerativeModel({ model });
+  return token;
+}
+
+function buildEndpoint(model: string, location: string) {
+  return `https://aiplatform.googleapis.com/v1/projects/${GEMINI_CONFIG.projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
 }
 
 function shouldRetryWithFallback(error: unknown) {
@@ -67,33 +66,51 @@ function shouldRetryWithFallback(error: unknown) {
   ].some((signal) => message.includes(signal));
 }
 
-type GeminiGenerateContentInput = Parameters<ReturnType<VertexAI['getGenerativeModel']>['generateContent']>[0];
+async function invokeModel(model: string, location: string, request: Record<string, unknown>) {
+  const token = await getAccessToken();
+  const response = await fetch(buildEndpoint(model, location), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    cache: 'no-store',
+  });
 
-export async function generateContentWithFallback(taskType: GeminiTaskType, request: GeminiGenerateContentInput) {
-  const primaryModel = buildModel(taskType, false);
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(JSON.stringify(payload));
+  }
+
+  return payload;
+}
+
+export async function generateContentWithFallback(taskType: GeminiTaskType, request: Record<string, unknown>) {
+  const config = getTaskConfig(taskType);
+  logWithTime(MODULE_NAME, `Using model ${config.primaryModel} in ${config.primaryLocation} for ${taskType}`);
 
   try {
-    return await primaryModel.generateContent(request);
+    return await invokeModel(config.primaryModel, config.primaryLocation, request);
   } catch (error) {
     logError(MODULE_NAME, `Primary Gemini request failed for ${taskType}`, error);
 
-    const config = getTaskConfig(taskType);
     if (!config.fallbackModel || !config.fallbackLocation || !shouldRetryWithFallback(error)) {
       throw error;
     }
 
-    const fallbackModel = buildModel(taskType, true);
-    return await fallbackModel.generateContent(request);
+    logWithTime(MODULE_NAME, `Retrying ${taskType} with fallback ${config.fallbackModel} in ${config.fallbackLocation}`);
+    return await invokeModel(config.fallbackModel, config.fallbackLocation, request);
   }
 }
 
-export async function generateTextWithFallback(taskType: GeminiTaskType, request: GeminiGenerateContentInput) {
-  const response = await generateContentWithFallback(taskType, request);
-  const aggregatedResponse = await response.response;
-  const text = aggregatedResponse.candidates?.[0]?.content?.parts?.[0]?.text || '';
+export async function generateTextWithFallback(taskType: GeminiTaskType, request: Record<string, unknown>) {
+  const payload = await generateContentWithFallback(taskType, request);
+  const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-  if (!text) {
-    throw new Error(`Gemini returned empty text for task ${taskType}`);
+  if (!text || typeof text !== 'string') {
+    throw new Error(`Gemini 返回了空文本 (${taskType})`);
   }
 
   return text;
