@@ -10,10 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@google-cloud/aiplatform": "^4.1.0",
     "@google-cloud/vertexai": "^1.9.3",
-    "@google/genai": "^0.7.0",
-    "@google/generative-ai": "^0.24.0",
     "@llamaindex/core": "0.2.12",
     "@octokit/rest": "20.1.2",
     "@tailwindcss/forms": "0.5.7",
@@ -25,7 +22,6 @@
     "lodash": "4.17.21",
     "next": "15.2.3",
     "node-cache": "5.1.2",
-    "openai": "4.88.0",
     "pg": "8.14.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",

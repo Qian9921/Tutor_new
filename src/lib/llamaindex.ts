@@ -1,5 +1,5 @@
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
-import { getRepositoryFiles, parseGitHubUrl } from './github';
+import { getFileContentBySha, getRepositoryTree, parseGitHubUrl } from './github';
 import { logWithTime, logError } from './logger';
 
 // 模块名称常量
@@ -95,85 +95,39 @@ export async function processGitHubRepository(
  * 获取仓库文件
  */
 async function getRepoFiles(owner: string, repo: string): Promise<Array<{path: string; content: string}>> {
-  logWithTime(MODULE_NAME, `获取仓库文件: ${owner}/${repo}`);
-  
+  logWithTime(MODULE_NAME, `通过仓库树获取仓库文件: ${owner}/${repo}`);
+
   try {
-    // 获取主要文件列表
-    const rootFiles = await getRepositoryFiles(owner, repo);
-    
-    // 筛选需要深入获取内容的文件和目录
-    const result: Array<{path: string; content: string}> = [];
-    
-    // 创建一个队列用于遍历目录
-    const queue: Array<{path: string; type: string}> = rootFiles.map(item => ({
-      path: item.path,
-      type: item.type
-    }));
-    
-    // 处理队列
-    while (queue.length > 0) {
-      const current = queue.shift();
-      
-      if (!current) continue;
-      
-      if (current.type === 'file') {
-        // 如果是文件且应该包含
-        if (shouldIncludeFile(current.path)) {
+    const repositoryTree = await getRepositoryTree(owner, repo);
+    const candidateFiles = repositoryTree.filter(item => item.type === 'blob' && shouldIncludeFile(item.path));
+
+    logWithTime(MODULE_NAME, `仓库树候选文件数: ${candidateFiles.length}`);
+
+    const concurrency = 8;
+    const results: Array<{path: string; content: string}> = [];
+
+    for (let index = 0; index < candidateFiles.length; index += concurrency) {
+      const chunk = candidateFiles.slice(index, index + concurrency);
+      const chunkResults = await Promise.all(
+        chunk.map(async (file) => {
           try {
-            const content = await getFileContent(owner, repo, current.path);
-            result.push({
-              path: current.path,
-              content
-            });
+            const content = await getFileContentBySha(owner, repo, file.path, file.sha);
+            return { path: file.path, content };
           } catch (error) {
-            logError(MODULE_NAME, `获取文件内容失败: ${current.path}`, error);
-            // 跳过这个文件，继续处理其他文件
+            logError(MODULE_NAME, `获取文件内容失败: ${file.path}`, error);
+            return null;
           }
-        }
-      } else if (current.type === 'dir') {
-        // 如果是目录且应该包含
-        if (shouldIncludeDirectory(current.path)) {
-          try {
-            const dirFiles = await getRepositoryFiles(owner, repo, current.path);
-            
-            // 将目录中的文件和子目录添加到队列
-            for (const item of dirFiles) {
-              queue.push({
-                path: item.path,
-                type: item.type
-              });
-            }
-          } catch (error) {
-            logError(MODULE_NAME, `获取目录内容失败: ${current.path}`, error);
-            // 跳过这个目录，继续处理其他文件和目录
-          }
-        }
-      }
+        })
+      );
+
+      results.push(...chunkResults.filter((item): item is {path: string; content: string} => item !== null));
     }
-    
-    logWithTime(MODULE_NAME, `获取到${result.length}个文件`);
-    return result;
+
+    logWithTime(MODULE_NAME, `获取到${results.length}个文件`);
+    return results;
   } catch (error) {
     logError(MODULE_NAME, '获取仓库文件失败', error);
     throw new Error(`获取仓库文件失败: ${(error as Error).message}`);
-  }
-}
-
-/**
- * 获取文件内容
- */
-async function getFileContent(owner: string, repo: string, path: string): Promise<string> {
-  try {
-    // 使用GitHub模块获取文件内容
-    const result = await getRepositoryFiles(owner, repo, path);
-    
-    if (Array.isArray(result) && result.length === 1 && result[0].content) {
-      return result[0].content;
-    }
-    
-    throw new Error('获取文件内容失败');
-  } catch (error) {
-    throw new Error(`获取文件内容失败: ${(error as Error).message}`);
   }
 }
 
@@ -192,15 +146,6 @@ function shouldIncludeFile(path: string): boolean {
   );
   
   return !hasExcludedExtension && !isInExcludedDir;
-}
-
-/**
- * 判断是否应该包含该目录
- */
-function shouldIncludeDirectory(path: string): boolean {
-  return !EXCLUDED_DIRECTORIES.some(dir => 
-    path === dir || path.startsWith(`${dir}/`) || path.includes(`/${dir}/`)
-  );
 }
 
 /**

@@ -1,12 +1,12 @@
 （# 代码评估平台
 
-基于LlamaIndex和豆包API的项目代码智能评估系统。该系统能够获取GitHub仓库代码，使用LlamaIndex处理后通过豆包API进行智能评估，为开发者提供代码质量、功能实现、可维护性和安全性的专业评估。
+基于 GitHub 仓库读取、上下文筛选与 Google Gemini 的项目代码智能评估系统。该系统能够获取完整 GitHub 仓库内容，筛选与任务相关的关键文件，并使用 Gemini 进行代码与视频展示评估，为开发者提供代码质量、功能实现、可维护性和安全性的专业评估。
 
 ## 主要功能
 
 - **GitHub代码获取**：自动获取完整仓库代码，支持缓存
 - **LlamaIndex处理**：分析项目结构，提取关键文件
-- **豆包API评估**：专业代码质量评估，提供改进建议
+- **Gemini 评估引擎**：专业代码质量评估，提供改进建议
 - **可视化界面**：直观展示评估结果和建议
 - **API接口**：支持外部系统集成
 
@@ -17,7 +17,7 @@
 - **数据存储**：Firebase Firestore
 - **核心服务**：
   - LlamaIndex - 代码分析
-  - 豆包API - AI评估
+  - Gemini / Vertex AI - AI评估
   - GitHub API - 代码获取
 - **缓存**：Node-Cache
 
@@ -55,11 +55,14 @@ FIREBASE_PRIVATE_KEY="your-private-key"
 # GitHub Token
 GITHUB_TOKEN=your-github-token
 
-# 豆包API密钥
-DOUBAO_API_KEY=your-doubao-api-key
-
-# Google Gemini API密钥
-GEMINI_API_KEY=your-gemini-api-key
+## Gemini / Vertex AI 配置
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+GOOGLE_CLOUD_LOCATION=global
+VERTEX_REGIONAL_LOCATION=us-central1
+VERTEX_FAST_MODEL=gemini-3-flash-preview
+VERTEX_COMPLEX_MODEL=gemini-3.1-pro-preview
+VERTEX_FAST_FALLBACK_MODEL=gemini-2.5-flash
+VERTEX_COMPLEX_FALLBACK_MODEL=gemini-2.5-pro
 ```
 
 ### 启动开发服务器
@@ -163,7 +166,7 @@ POST `/api/test` - 测试评估流程
 
 - Firebase连接使用HTTP代理 (端口33210) 和SOCKS代理 (端口33211)
 - GitHub API访问需要有效的GitHub Token
-- 豆包API需要有效的API密钥
+- Gemini / Vertex AI 需要有效的 Google Cloud 认证与项目配置
 
 ## 许可证
 

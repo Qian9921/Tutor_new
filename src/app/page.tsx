@@ -12,7 +12,7 @@ export default function Home() {
             代码评估平台
           </h1>
           <p className="text-xl text-gray-600 mb-6">
-            基于LlamaIndex和豆包API的项目代码智能评估系统
+            基于 GitHub 仓库读取与 Gemini 的项目代码智能评估系统
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
             <Link 
@@ -50,7 +50,7 @@ export default function Home() {
               <p className="text-gray-600">提取关键文件，分析项目结构</p>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
-              <h3 className="font-medium text-purple-800">豆包 AI 评估</h3>
+              <h3 className="font-medium text-purple-800">Gemini AI 评估</h3>
               <p className="text-gray-600">专业代码品质评估，提供改进建议</p>
             </div>
           </div>

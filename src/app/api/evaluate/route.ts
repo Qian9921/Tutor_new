@@ -249,8 +249,8 @@ async function processEvaluation(
       // 尽管更新状态失败，但继续处理
     }
     
-    // 调用豆包API评估代码
-    logWithTime(`[ID: ${evaluationId}] 调用豆包API评估代码...`);
+    // 调用 Gemini 评估代码
+    logWithTime(`[ID: ${evaluationId}] 调用 Gemini 评估代码...`);
     let evaluationResult;
     
     try {

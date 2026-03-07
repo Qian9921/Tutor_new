@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, testDatabaseConnection, waitForDatabaseInitialization } from '@/lib/database';
 import { parseGitHubUrl } from '@/lib/github';
+import { generateTextWithFallback } from '@/lib/llm/gemini-provider';
 // 定义测试结果的基本接口
 interface TestResult {
   success: boolean;
@@ -117,21 +118,28 @@ export async function GET(request: NextRequest) {
     };
   }
 
-  // 测试豆包API连接
+  // 测试 Gemini API 连接（保留 doubao 键，兼容现有前端）
   try {
-    logWithTime('测试豆包 API 配置...');
-    // 简单测试，不实际发送请求
-    const isApiKeySet = !!process.env.DOUBAO_API_KEY;
-    const apiKeyPrefix = isApiKeySet ? process.env.DOUBAO_API_KEY?.substring(0, 4) + '****' : 'undefined';
-    
-    logWithTime(`豆包 API 密钥${isApiKeySet ? '已' : '未'}配置: ${apiKeyPrefix}`);
+    logWithTime('测试 Gemini API 配置...');
+    const geminiResponse = await generateTextWithFallback(
+      'health-check',
+      {
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: 'Reply with the single word OK.' }],
+          },
+        ],
+      },
+    );
+
     results.tests.doubao = {
-      success: isApiKeySet,
-      message: isApiKeySet ? '豆包API密钥已配置' : '豆包API密钥未配置'
+      success: true,
+      message: `Gemini API连接成功: ${geminiResponse.trim()}`
     };
   } catch (error) {
-    const errorMsg = '豆包API测试失败: ' + (error as Error).message;
-    logError('豆包API测试失败', error);
+    const errorMsg = 'Gemini API测试失败: ' + (error as Error).message;
+    logError('Gemini API测试失败', error);
     results.tests.doubao = {
       success: false,
       message: errorMsg,

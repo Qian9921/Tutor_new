@@ -1,48 +1,16 @@
-import { VertexAI } from '@google-cloud/vertexai';
 import { evaluateYouTubeVideo, extractJsonFromMarkdown as extractJsonFromMarkdownGemini } from './gemini';
+import { logError as sharedLogError, logWithTime as sharedLogWithTime } from './logger';
+import { extractJsonFromMarkdown, generateContentWithFallback } from '@/lib/llm/gemini-provider';
 
-// 添加时间戳的日志函数
+const MODULE_NAME = 'CODE EVALUATOR';
+
 function logWithTime(message: string, data?: unknown) {
-  const timestamp = new Date().toISOString();
-  if (data) {
-    console.log(`[${timestamp}] [VERTEX AI] ${message}`, data);
-  } else {
-    console.log(`[${timestamp}] [VERTEX AI] ${message}`);
-  }
+  sharedLogWithTime(MODULE_NAME, message, data);
 }
 
 function logError(message: string, error: unknown) {
-  const timestamp = new Date().toISOString();
-  console.error(`[${timestamp}] [VERTEX AI ERROR] ${message}`, error);
-  console.error(`Stack: ${(error as Error).stack || 'No stack trace'}`);
+  sharedLogError(MODULE_NAME, message, error);
 }
-
-// 项目配置
-const projectId = 'open-impact-lab-zob4aq';
-const location = 'us-central1';
-const modelName = 'gemini-2.5-pro';
-
-// 创建VertexAI客户端
-function createVertexAIClient() {
-  try {
-    // 初始化Vertex AI
-    const vertexAI = new VertexAI({
-      project: projectId, 
-      location: location
-    });
-    
-    // 获取生成式模型
-    return vertexAI.getGenerativeModel({
-      model: modelName,
-    });
-  } catch (error) {
-    logError('初始化VertexAI客户端失败', error);
-    throw new Error(`初始化VertexAI客户端失败: ${(error as Error).message}`);
-  }
-}
-
-// 初始化默认客户端
-let generativeModel = createVertexAIClient();
 
 // API请求参数类型
 export interface CodeEvaluationParams {
@@ -74,38 +42,8 @@ export interface VideoEvaluationResult {
 // 判断是否应该使用模拟数据
 function shouldUseMockData() {
   // 开发环境且没有API密钥，或者强制使用模拟数据的环境变量
-  return (process.env.NODE_ENV === 'development' && !process.env.DASHSCOPE_API_KEY) ||
+  return (process.env.NODE_ENV === 'development' && !process.env.GOOGLE_CLOUD_PROJECT) ||
     process.env.USE_MOCK_DATA === 'true';
-}
-
-/**
- * 尝试从可能包含Markdown代码块的文本中提取JSON
- */
-function extractJsonFromMarkdown(text: string): any {
-  // 尝试直接解析
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    // 记录直接解析失败的错误
-    logWithTime('直接解析JSON失败:', e);
-
-    // 直接解析失败，尝试提取代码块
-    const jsonBlockRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/m;
-    const match = text.match(jsonBlockRegex);
-
-    if (match && match[1]) {
-      // 找到代码块，尝试解析其内容
-      try {
-        return JSON.parse(match[1]);
-      } catch (innerError) {
-        // 代码块内容解析失败
-        logWithTime('代码块解析失败:', innerError);
-      }
-    }
-
-    // 如果上述方法都失败，返回null
-    return null;
-  }
 }
 
 /**
@@ -176,11 +114,6 @@ export async function evaluateCode(params: CodeEvaluationParams): Promise<CodeEv
   while (retryCount < maxRetries) {
     try {
       // 如果是重试，尝试重新初始化客户端
-      if (retryCount > 0) {
-        logWithTime(`重新初始化VertexAI客户端 (尝试 ${retryCount + 1}/${maxRetries})`);
-        generativeModel = createVertexAIClient();
-      }
-
       logWithTime(`发送评估请求到Vertex AI${retryCount > 0 ? ` (尝试 ${retryCount + 1}/${maxRetries})` : ''}`);
 
       // 打印请求数据
@@ -255,7 +188,7 @@ Provide assessment in JSON format:
 - Format the response as valid JSON
 `;
 
-      // 使用VertexAI发送请求
+      // 使用统一的 Gemini 提供层发送请求
       const request = {
         contents: [
           {
@@ -272,7 +205,7 @@ Provide assessment in JSON format:
       };
 
       // 发送请求并等待响应
-      const response = await generativeModel.generateContent(request);
+      const response = await generateContentWithFallback('code-evaluation', request);
       const aggregatedResponse = await response.response;
 
       logWithTime('评估请求成功');
