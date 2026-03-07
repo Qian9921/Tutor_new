@@ -205,8 +205,7 @@ Provide assessment in JSON format:
       };
 
       // 发送请求并等待响应
-      const response = await generateContentWithFallback('code-evaluation', request);
-      const aggregatedResponse = await response.response;
+      const aggregatedResponse = await generateContentWithFallback('code-evaluation', request);
 
       logWithTime('评估请求成功');
 
