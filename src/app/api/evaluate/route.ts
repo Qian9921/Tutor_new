@@ -118,53 +118,38 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 使用同步模式：直接处理并等待结果
-    logWithTime(`开始处理代码评估任务，ID: ${evaluationId}`);
-    
-    try {
-      // 直接调用处理函数，等待完成
-      await processEvaluation(evaluationId, projectDetail, 
-                           Array.isArray(tasks) ? tasks : [tasks], 
-                           currentTask, evidence, githubRepoUrl);
-      
-      // 处理完成后，读取结果
-      const docRef = db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId);
-      const docSnapshot = await docRef.get();
-      const evaluationData = docSnapshot.data();
-      
-      logWithTime(`代码评估完成，返回结果，ID: ${evaluationId}`);
-      
-      // 返回完整结果
-      return NextResponse.json({
-        success: true,
-        message: '代码评估完成',
-        evaluationId,
-        status: 'completed',
-        result: evaluationData?.result || null
-      });
-    } catch (processError) {
+    logWithTime(`开始异步处理代码评估任务，ID: ${evaluationId}`);
+
+    void processEvaluation(
+      evaluationId,
+      projectDetail,
+      Array.isArray(tasks) ? tasks : [tasks],
+      currentTask,
+      evidence,
+      githubRepoUrl,
+    ).catch(async (processError) => {
       logError(`代码评估处理失败: ${evaluationId}`, processError);
-      
-      // 更新数据库中的错误信息
+
       try {
         await db.collection(COLLECTIONS.EVALUATIONS).doc(evaluationId).update({
           status: 'failed',
+          statusMessage: '代码评估失败',
           error: processError instanceof Error ? processError.message : String(processError),
           stack: processError instanceof Error ? processError.stack : undefined,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         });
         logWithTime(`已更新数据库中的错误信息，ID: ${evaluationId}`);
       } catch (updateError) {
         logError(`更新错误信息失败: ${evaluationId}`, updateError);
       }
-      
-      return NextResponse.json({
-        success: false,
-        evaluationId,
-        message: '代码评估处理失败',
-        error: processError instanceof Error ? processError.message : String(processError)
-      }, { status: 500 });
-    }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: '评估请求已接收，正在后台处理中',
+      evaluationId,
+      status: 'pending'
+    }, { status: 202 });
   } catch (error) {
     logError('评估API错误', error);
     
