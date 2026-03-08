@@ -1,4 +1,5 @@
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
+import { rankRelevantFiles } from '@/lib/github-relevance';
 import { getFileContentBySha, getRepositoryTree, parseGitHubUrl } from './github';
 import { logWithTime, logError } from './logger';
 
@@ -188,31 +189,13 @@ function getRelevantFilesForTask(
   logWithTime(MODULE_NAME, `项目详情: ${safeSubstring(safeProjectDetail, 0, 100)}...`);
   logWithTime(MODULE_NAME, `子任务数量: ${safeTasks.length}`);
   
-  // 转义正则表达式特殊字符
-  const escapeRegExp = (string: string): string => {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  };
-  
-  // 计算相关性分数
-  const scoredFiles = files.map(file => {
-    const relevance = calculateRelevanceScore(
-      file.path,
-      file.content,
-      currentTask,
-      safeTasks,
-      safeProjectDetail,
-      safeEvidence,
-      escapeRegExp
-    );
-    
-    return {
-      ...file,
-      relevance
-    };
-  });
-  
-  // 按相关性排序
-  const sortedFiles = scoredFiles.sort((a, b) => b.relevance - a.relevance);
+  const sortedFiles = rankRelevantFiles(
+    files,
+    currentTask,
+    safeTasks,
+    safeProjectDetail,
+    safeEvidence,
+  );
   
   logWithTime(MODULE_NAME, `按相关性排序后，返回 ${sortedFiles.length} 个文件`);
   sortedFiles.slice(0, 10).forEach((file, index) => {
@@ -222,99 +205,3 @@ function getRelevantFilesForTask(
   return sortedFiles;
 }
 
-/**
- * 计算文件与任务的相关性分数
- */
-function calculateRelevanceScore(
-  filePath: string,
-  fileContent: string,
-  currentTask: string,
-  allTasks: string[],
-  projectDetail: string,
-  evidence: string,
-  escapeRegExp: (str: string) => string
-): number {
-  // 将路径和内容转为小写，用于不区分大小写的匹配
-  const lowerPath = filePath.toLowerCase();
-  const lowerContent = fileContent.toLowerCase();
-  
-  // 基础分数
-  let score = 0;
-  
-  // 辅助函数：计算关键词匹配分数
-  const calculateWordMatchScore = (
-    text: string, 
-    pathWeight: number, 
-    contentWeight: number
-  ): number => {
-    let matchScore = 0;
-    const lowerText = text.toLowerCase();
-    const words = lowerText.split(/\s+/).filter(word => word.length > 3);
-    
-    for (const word of words) {
-      // 路径匹配
-      if (lowerPath.includes(word)) {
-        matchScore += pathWeight;
-      }
-      
-      // 内容匹配 - 使用try-catch来处理正则表达式错误
-      try {
-        // 转义特殊字符
-        const safeWord = escapeRegExp(word);
-        const regex = new RegExp(safeWord, 'gi');
-        const matches = lowerContent.match(regex);
-        if (matches) {
-          matchScore += contentWeight * Math.min(matches.length, 10);
-        }
-      } catch (error) {
-        logError(MODULE_NAME, `正则表达式匹配失败, 单词: ${word}`, error);
-        // 继续处理其他单词
-      }
-    }
-    
-    return matchScore;
-  };
-  
-  // 计算各项评分
-  
-  // 1. 当前任务评分 - 较高权重
-  score += calculateWordMatchScore(currentTask, 0.2, 0.05);
-  
-  // 2. 所有子任务评分 - 中等权重
-  // 排除当前任务，避免重复计算
-  const otherTasks = allTasks.filter(t => t !== currentTask);
-  for (const subTask of otherTasks.slice(0, 5)) { // 最多处理5个其他任务
-    score += calculateWordMatchScore(subTask, 0.1, 0.03);
-  }
-  
-  // 3. 项目详情评分 - 较低权重
-  score += calculateWordMatchScore(projectDetail, 0.05, 0.02);
-  
-  // 4. 证据评分 - 最高权重
-  score += calculateWordMatchScore(evidence, 0.4, 0.1);
-  
-  // 根据文件类型加分 - 次要权重
-  if (lowerPath.endsWith('.ts') || lowerPath.endsWith('.tsx')) {
-    score += 0.1; // TypeScript文件加分
-  }
-  if (lowerPath.endsWith('.js') || lowerPath.endsWith('.jsx')) {
-    score += 0.08; // JavaScript文件加分
-  }
-  if (lowerPath.includes('/api/')) {
-    score += 0.15; // API相关文件加分
-  }
-  if (lowerPath.includes('/components/')) {
-    score += 0.1; // 组件文件加分
-  }
-  if (lowerPath.includes('/pages/') || lowerPath.includes('/app/')) {
-    score += 0.1; // 页面文件加分
-  }
-  if (lowerPath.includes('/lib/') || lowerPath.includes('/utils/')) {
-    score += 0.1; // 库和工具文件加分
-  }
-  
-  // 规范化分数到0-1范围
-  score = Math.min(Math.max(score, 0), 1);
-  
-  return score;
-} 
