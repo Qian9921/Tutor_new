@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, COLLECTIONS, waitForDatabaseInitialization } from '@/lib/database';
 import { VideoEvaluationResult } from '@/lib/doubao';
+import { normalizeCodeEvaluationResult } from '@/lib/evaluation/normalize';
 
 // 定义具体的类型，替代any
 interface CodeEvaluationCheckpoint {
@@ -114,6 +115,9 @@ export async function GET(
     
     // 确保评估结果格式一致，支持终审模式下代码和视频评估结果的呈现
     let formattedResult: EvaluationResult | null = evaluationData.result || null;
+    if (formattedResult?.rawContent) {
+      formattedResult = normalizeCodeEvaluationResult(formattedResult.rawContent) as unknown as EvaluationResult;
+    }
     
     // 检查是否需要将视频评估结果合并到评估结果中（保持videoRawContent与rawContent平级）
     if (formattedResult && 
